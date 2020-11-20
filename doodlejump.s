@@ -14,7 +14,7 @@
 #
 # Which milestone is reached in this submission?
 # (See the assignment handout for descriptions of the milestones)
-# - Milestone 1/2/3/4/5 (choose the one the applies)
+# - Milestone 1/[2]/3/4/5 (choose the one the applies)
 #
 # Which approved additional features have been implemented?
 # (See the assignment handout for the list of additional features)
@@ -37,9 +37,10 @@
 	.eqv BLUE      0x11bffe 
 	.eqv YELLOW    0xdad830
 	.eqv BLACK     0x000000
-	.eqv GREEN     0x0c8f50
+	.eqv DGREEN    0x0c8f50
+	.eqv LGREEN    0x64bb12
 
-	colors: .word BLUE, YELLOW, BLACK, GREEN
+	colors: .word BLUE, YELLOW, BLACK, DGREEN, LGREEN
 
 
 	# The start address for the bitmap display
@@ -47,7 +48,7 @@
 
 
 	# The bitmap for the doodler
-	doodlerArray: .word 0,0,1,1,0,0,0,0
+	doodlerArrayR:.word 0,0,1,1,0,0,0,0
                   .word 0,1,1,1,1,0,0,1
 				 .word 1,1,2,1,2,1,1,1
 				 .word 1,1,1,1,1,1,0,1
@@ -55,12 +56,27 @@
 				 .word 1,1,1,1,1,1,0,0
 				 .word 2,0,0,0,2,0,0,0
 				 .word 2,2,0,0,2,2,0,0
+
+	doodlerArrayL:.word 0,0,0,0,1,1,0,0
+				 .word 1,0,0,1,1,1,1,0
+				 .word 1,1,1,2,1,2,1,1
+				 .word 1,0,1,1,1,1,1,1
+				 .word 0,0,3,3,3,3,3,3
+				 .word 0,0,1,1,1,1,1,1
+				 .word 0,0,0,2,0,0,0,2
+				 .word 0,0,2,2,0,0,2,2
+				 
+				 
+	platformArray:.word 4,4,4,4,4,4,4,4,4,4,4,4
+				 .word 0,0,4,4,4,4,4,4,4,4,0,0
 				 
 	skyArray:     .space 4096 # An array of 32x32 zeros
 	
-	
-	
 	newLine:      .asciiz "\n"
+	
+	doodlerX:     .word 10
+	doodlerY:     .word 22
+	hDirection:   .word 0
 
 .text
 # Defining some useful macros
@@ -68,8 +84,8 @@
 	    addi $sp, $sp, -4
 		addi $a0, $zero, %x_size
 		addi $a1, $zero, %y_size
-		addi $a2, $zero, %x_pos
-		addi $a3, $zero, %y_pos
+		add $a2, $zero, %x_pos
+		add $a3, $zero, %y_pos
 		la $t0, %bitmap
 		sw $t0, 0($sp)
 		jal drawBitMap    
@@ -77,20 +93,108 @@
 	.end_macro
 
 	main:
-	# Draw the blue background 
-	draw (32, 32, 0,0 skyArray)
-	
-	# Draw the Doodler
-	draw(8,8,1,0,doodlerArray)
+		mainLoop:
+		
+		# Check for keyboard input
+		lw $t0, 0xffff0000				   # Check if a key has been pressed (a 1 is stored here)
+		beq $t0, 1, if_keyboard_input		   # if $t0 == 1 go to if_keyboard_input	 
+		beq $t0, 0, fi_keyboard_input		   # else go to fi_keyboard_input	
+			if_keyboard_input:
+				lw $t2, 0xffff0004		   # Load the keyboard input into $t2
+				
+				# If statments for differnt letter inputs
+				beq $t2, 0x6A, respond_to_J 	
+				beq $t2, 0x6B, respond_to_K
+				beq $t2, 0x73, respond_to_S
+				beq $t2, 0x63, respond_to_C
+				j fi_keyboard_input		   # If they input is none of the accepted characters exit the if statement
+				
+				respond_to_J:
+				
+					# doodlerX--, and wrap around if x < 0
+					lw $t1, doodlerX
+					addi $t1, $t1, -1
 
-	j  exit
+					blt $t1, 0, if_wrapAroundLeft
+					bge $t1, 0, fi_wrapAroundLeft
+					if_wrapAroundLeft:
+						addi $t1, $zero, 24
+					fi_wrapAroundLeft:
+					
+					sw $t1, doodlerX
+					sw $zero, hDirection # Sets the direction as left
+					j fi_keyboard_input  # Exit if statement
+				respond_to_K:
+					# doodlerX++, and wrap around if x > 24 (i.e nose touches right)
+					lw $t1, doodlerX
+					addi $t1, $t1, 1
+					
+					bgt  $t1, 24, if_wrapAroundRight
+					ble  $t1, 24, fi_wrapAroundRight
+					if_wrapAroundRight:
+						addi $t1, $zero, 0
+					fi_wrapAroundRight:
+ 
+					sw $t1, doodlerX
+					li $t1, 1
+					sw $t1, hDirection # Sets the direction as right
+					j fi_keyboard_input  # Exit if statement
+				respond_to_S:
+					li $v0, 1
+					addi, $a0, $zero, 0
+					syscall
+					j fi_keyboard_input  # Exit if statement
+				respond_to_C:
+					j  exitLoop
+				
+			fi_keyboard_input:
+		
+			# Update location 
+			# Check for colliosons
+			
+		# Update location of platforms and other objects
+		
+		# Redraw the screen
+		
+			# Draw the blue background 
+			draw (32, 32, 0, 0 skyArray)
+
+			draw(2, 12, 30,5,platformArray)
+			
+			draw(2, 12, 18,5,platformArray)
+
+			draw(2, 12, 10,12,platformArray)
+		
+			# Draw the Doodler at (doodlerX, doodlerY)
+			lw $t1, doodlerY
+			lw $t2, doodlerX
+			
+			# Draws the left facing (hDirection == 0) or right facting (hDirection != 1) doodler
+			lw $t3, hDirection
+			
+			li $v0, 1
+			move $a0, $t3
+			syscall
+			
+			beqz  $t3, if_hDirectionIsLeft
+				draw(8,8,$t1, $t2, doodlerArrayR)
+				j fi_hDirectionIsLeft
+			if_hDirectionIsLeft:
+				draw(8,8,$t1, $t2, doodlerArrayL)
+			fi_hDirectionIsLeft:
+			
+			
+		# Sleep
+		li $v0, 32
+		li $a0, 333 # 1/3 second sleep
+		syscall
+		
+		j mainLoop
 	
-	
-	exit:
+	exitLoop:
 		# End the program
 		li $v0, 10
 		syscall 
-
 		
 #######################################################
 # Draws a bitmap of size x-size by y-size in position (X,Y) on the bitmap display unit	
