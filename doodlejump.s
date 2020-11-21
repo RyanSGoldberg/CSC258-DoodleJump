@@ -9,7 +9,7 @@
 # - Unit width in pixels: 8
 # - Unit height in pixels: 8
 # - Display width in pixels: 256
-# - Display height in pixels: 256
+# - Display height in pixels: 512
 # - Base Address for Display: 0x10008000 ($gp)
 #
 # Which milestone is reached in this submission?
@@ -29,11 +29,13 @@
 #####################################################################
 .data
 	# Defining constants
-	.eqv TRUE      0
-	.eqv FALSE     1
-	.eqv DATA_SIZE 4   # Size of an integer in bytes
-	.eqv SCREEN_SIZE 32
+	.eqv TRUE             1
+	.eqv FALSE            0
+	.eqv SCREEN_WIDTH    32
+	.eqv SCREEN_HEIGHT   64 
+	.eqv PLATFORM_WIDTH  12
 
+	# Defining some colors to be used and their pallate
 	.eqv BLUE      0x11bffe 
 	.eqv YELLOW    0xdad830
 	.eqv BLACK     0x000000
@@ -66,19 +68,27 @@
 				 .word 0,0,0,2,0,0,0,2
 				 .word 0,0,2,2,0,0,2,2
 				 
-				 
+	# The bitmap for a platform
 	platformArray:.word 4,4,4,4,4,4,4,4,4,4,4,4
 				 .word 0,0,4,4,4,4,4,4,4,4,0,0
-				 
-	skyArray:     .space 4096 # An array of 32x32 zeros
 	
+	# The bitmap for the sky (An array of 32x32 zeros)		 		 
+	skyArray:     .space 8192
+	
+	# Strings
 	newLine:      .asciiz "\n"
+	message1:     .asciiz "You are on a platform\n\n"
 	
+	# Variables
 	doodlerX:     .word 10
 	doodlerY:     .word 22
 	hDirection:   .word 0
+	vVelocity:    .word 0
 
-.text
+	# Every even idxex is left value is position, every odd idnxex is right value and values are platform value
+	platformPositions: #.space 512 (2 columns * 64 rows * 4 bytes)
+	.word 0,0, 0,0, 10,0, 0,0, 0,0, 13,0, 0,0, 0,0, 0,6, 0,0, 0,0, 0,0, 0,0, 0,0, 0,0, 6,0,0 ,0, 0,0, 0,0, 0,0, 0,0, 18,0, 0,0, 0,0, 0,0, 11,0, 0,0, 0,0, 0,3, 0,0, 0,0, 1,0		# Temmp
+.text																			  # CURRENTLY HERE REMOVE ME
 # Defining some useful macros
 	.macro draw (%x_size, %y_size, %x_pos, %y_pos, %bitmap)
 	    addi $sp, $sp, -4
@@ -110,7 +120,6 @@
 				j fi_keyboard_input		   # If they input is none of the accepted characters exit the if statement
 				
 				respond_to_J:
-				
 					# doodlerX--, and wrap around if x < 0
 					lw $t1, doodlerX
 					addi $t1, $t1, -1
@@ -146,36 +155,53 @@
 					j fi_keyboard_input  # Exit if statement
 				respond_to_C:
 					j  exitLoop
-				
+			
 			fi_keyboard_input:
 		
-			# Update location 
-			# Check for colliosons
+			# Update location 	
+																									#todo
+			# Check for doodler colisions (with platform)												#todo	
+			jal doodlerOnPlatform
+			add $t9, $zero, $v0		# 0 if you are not on a platform, 1 if you are
 			
-		# Update location of platforms and other objects
+			#Implements the falling 																	#todo
+			beqz $t9, else_on_platform
+			bnez  $t9, if_on_platform
+			if_on_platform:
+				# TODO JUMP
+				
+				
+				j fi_on_platform
+			else_on_platform:
+				# You are not on a platform, so you are falling (for now)
+				lw $t1, doodlerY
+				
+				addi $t1, $t1, 1
+				sw $t1, doodlerY
+			
+				j fi_on_platform
+			fi_on_platform:
+			
+			
+			
+			
+			
+			
+			
+		# Update location of platforms and other objects 													#todo
 		
 		# Redraw the screen
-		
 			# Draw the blue background 
-			draw (32, 32, 0, 0 skyArray)
+			draw (SCREEN_HEIGHT, SCREEN_WIDTH, 0, 0 skyArray)
 
-			draw(2, 12, 30,5,platformArray)
+			# Draw platforms 
+			jal drawPlatforms
 			
-			draw(2, 12, 18,5,platformArray)
-
-			draw(2, 12, 10,12,platformArray)
-		
-			# Draw the Doodler at (doodlerX, doodlerY)
+			# The possition of the Doodler is (doodlerX, doodlerY)
 			lw $t1, doodlerY
 			lw $t2, doodlerX
-			
 			# Draws the left facing (hDirection == 0) or right facting (hDirection != 1) doodler
 			lw $t3, hDirection
-			
-			li $v0, 1
-			move $a0, $t3
-			syscall
-			
 			beqz  $t3, if_hDirectionIsLeft
 				draw(8,8,$t1, $t2, doodlerArrayR)
 				j fi_hDirectionIsLeft
@@ -186,7 +212,7 @@
 			
 		# Sleep
 		li $v0, 32
-		li $a0, 333 # 1/3 second sleep
+		li $a0, 1 # 1/3 second sleep
 		syscall
 		
 		j mainLoop
@@ -195,7 +221,44 @@
 		# End the program
 		li $v0, 10
 		syscall 
+
+
+#######################################################
+doodlerOnPlatform:																										# FIXME: You have hang off the right edge by the nose
+	lw $t0, doodlerX
+	lw $t1, doodlerY
+	la $t2, platformPositions
+	
+	addi $t1, $t1, 8 								# Standing on a platform, means we need to look 8 units under the Y to see if we are on it
+	mul $t3, $t1, 4									# Multiply by 4 (bytes) to get the correct mem address
+	add $t3, $t3, $t2
+	lw  $t3, ($t3)									# Store the value of platform array[i] in t3
+
+	bnez  $t3, if_possiblePlatformCollison 			# If the value is non-zero then it is the x-coord for a platform in row i
+	beqz  $t3, fi_collisionDetected 					# If the value is zero then there is no platform in this row
+	if_possiblePlatformCollison:
+		addi $t3, $t3, -1 							# The x-value is off by 1 and so must be decremented to the correct value
 		
+		# IF X >= t3-8 AND X <+ t3 +(12-1) ==> COLLISON
+		addi $t4, $t3, -7				#t4 = t3-8
+		addi $t5, $t3, 11				#t5 = t3+11	
+		sle $t4, $t4, $t0				# t4 = t3-8 <= X
+		sle $t5, $t0, $t5				# t5 = X >= t3+12
+		and $t3, $t4, $t5
+		bnez $t3, if_collisionDetected
+		beqz $t3 fi_collisionDetected
+		if_collisionDetected:
+			li $v0, 1			# You are on a platform
+			
+			j fi_possiblePlatformCollison
+		fi_collisionDetected:
+			li $v0, 0			# You are not on a platform
+			j fi_possiblePlatformCollison
+		fi_possiblePlatformCollison:
+		
+		jr $ra
+	
+
 #######################################################
 # Draws a bitmap of size x-size by y-size in position (X,Y) on the bitmap display unit	
 drawBitMap:
@@ -288,3 +351,49 @@ drawBitMap:
 	    lw $v0, ($s2)
 	    jr $ra					
 #######################################################
+drawPlatforms:
+	addi $sp, $sp, -4				    # Store the return address on the stack
+	sw   $ra, ($sp) 
+
+	addi $t0, $zero, SCREEN_HEIGHT 		# i = 64
+	la   $t1, platformPositions           # stores the return address on the stack on the stack
+
+	forPlatformRow:
+		addi $t0, $t0, -1                 #i--
+		
+		mul $t2, $t0, 4					# 4i 
+		add $t2, $t2, $t1
+		lw  $t2, ($t2)					# $t2 is the value of platformPositions[i]
+		
+		bnez  $t2, if_rowHasPlatform 				# If the value is non-zero then it is the x-coord for a platform in row i
+		beqz  $t2, fi_rowHasPlatform 				# If the value is zero then there is no platform in this row
+		if_rowHasPlatform:
+			addi $t2, $t2, -1 					# The x-value is off by 1 and so must be decremented to the correct value
+			
+			addi $sp, $sp, -8					# Allocated stack space
+	 		sw   $t0, ($sp) 						# Stores i on the stack
+	 		sw   $t1, 4($sp)						# Stores platformPositions on the stack
+			
+			draw(2, PLATFORM_WIDTH, $t0,$t2,platformArray)		# draw platform 
+
+			lw   $t0, ($sp) 
+			lw   $t1, 4($sp)						
+			addi $sp, $sp, 8							# Deallocated stack space after restoring values
+		
+		fi_rowHasPlatform:
+		
+	
+		beqz $t0, exitPlatformRow		# exit if i == 0
+		j forPlatformRow
+	
+	exitPlatformRow:
+		lw   $ra, 0($sp)     	# Restores the return address and dealocated the memory					
+         addi $sp, $sp, 4
+	
+		jr $ra
+#######################################################
+	
+	
+
+
+
