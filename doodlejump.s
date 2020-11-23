@@ -29,11 +29,12 @@
 #####################################################################
 .data
 	# Defining constants
-	.eqv TRUE             1
-	.eqv FALSE            0
-	.eqv SCREEN_WIDTH    32
-	.eqv SCREEN_HEIGHT   64 
-	.eqv PLATFORM_WIDTH  12
+	.eqv TRUE                1
+	.eqv FALSE               0
+	.eqv SCREEN_WIDTH       32
+	.eqv SCREEN_HEIGHT      64 
+	.eqv PLATFORM_WIDTH     12
+	.eqv SCREEN_BYTE_AREA 8192
 
 	# Defining some colors to be used and their pallate
 	.eqv BLUE      0x11bffe 
@@ -46,7 +47,9 @@
 
 
 	# The start address for the bitmap display
-	displayAddress: .word 0x10008000
+	displayAddress: .word  0x10008000
+	# The buffer where where the bitmap is stored before being drawn to the screen
+	displayBuffer:  .space SCREEN_BYTE_AREA
 
 
 	# The bitmap for the doodler
@@ -73,7 +76,7 @@
 				 .word 0,0,4,4,4,4,4,4,4,4,0,0
 	
 	# The bitmap for the sky (An array of 32x32 zeros)		 		 
-	skyArray:     .space 8192
+	skyArray:     .space SCREEN_BYTE_AREA
 	
 	# Strings
 	newLine:      .asciiz "\n"
@@ -89,7 +92,7 @@
 	platformPositions: #.space 512 (2 columns * 64 rows * 4 bytes)
 	.word 0,0, 0,0, 10,0, 0,0, 0,0, 13,0, 0,0, 0,0, 0,6, 0,0, 0,0, 0,0, 0,0, 0,0, 0,0, 6,0,0 ,0, 0,0, 0,0, 0,0, 0,0, 18,0, 0,0, 0,0, 0,0, 11,0, 0,0, 0,0, 0,3, 0,0, 0,0, 1,0		# Temmp
 .text																			  # CURRENTLY HERE REMOVE ME
-# Defining some useful macros
+	# Defining some useful macros
 	.macro draw (%x_size, %y_size, %x_pos, %y_pos, %bitmap)
 	    addi $sp, $sp, -4
 		addi $a0, $zero, %x_size
@@ -194,13 +197,13 @@
 			# Draw the blue background 
 			draw (SCREEN_HEIGHT, SCREEN_WIDTH, 0, 0 skyArray)
 
-			# Draw platforms 
+			# Draw platforms to buffer
 			jal drawPlatforms
 			
-			# The possition of the Doodler is (doodlerX, doodlerY)
+			# The position of the Doodler is (doodlerX, doodlerY)
 			lw $t1, doodlerY
 			lw $t2, doodlerX
-			# Draws the left facing (hDirection == 0) or right facting (hDirection != 1) doodler
+			# Draws the left facing (hDirection == 0) or right facting (hDirection != 1) doodler to the buffer
 			lw $t3, hDirection
 			beqz  $t3, if_hDirectionIsLeft
 				draw(8,8,$t1, $t2, doodlerArrayR)
@@ -209,6 +212,8 @@
 				draw(8,8,$t1, $t2, doodlerArrayL)
 			fi_hDirectionIsLeft:
 			
+			# Draw the bitmap display from the buffer
+			jal copyFromDisplayBuffer
 			
 		# Sleep
 		li $v0, 32
@@ -263,7 +268,7 @@ doodlerOnPlatform:																										# FIXME: You have hang off the right
 # Draws a bitmap of size x-size by y-size in position (X,Y) on the bitmap display unit	
 drawBitMap:
 	lw  $t0, 0($sp)            # The bitmap address is the first element on the stack
-	lw  $t1, displayAddress    # Stores the base address for display
+	la  $t1, displayBuffer    # Stores the buffer address for display
 	add $t2, $zero, $a0        # Stores the x-size
 	add $t3, $zero, $a1        # Stores the y-size
 	add $t4, $zero, $a2        # Store the X pos in the new array
@@ -298,6 +303,8 @@ drawBitMap:
 	        
 	    	    jal  setColor           # Put the color to drwa in $v0	
 	    		move $s1, $v0	
+	    																												
+	    																												# if transparent, don't draw anything
 	    		sw   $s1 ($s0)          # Draw color in $s1 at position $s0	
 	    		
 	       	lw   $t6, 0($sp)        # pop i off the stack
@@ -391,9 +398,24 @@ drawPlatforms:
          addi $sp, $sp, 4
 	
 		jr $ra
-#######################################################
+#######################################################	
+# Copy the displayBuffer to the display address
+copyFromDisplayBuffer:
+	lw  $t0, displayAddress
+	la  $t1, displayBuffer
 	
-	
+	addi $t2, $zero, 0
+	for_copy_display_buffer:
+		beq $t2, SCREEN_BYTE_AREA,exit_for_copy_display_buffer # Exit if i == 64*32*4 == 8192
+		
+		add $t3, $t1, $t2 									# $t3 = displayBuffer + offset i
+		add $t4, $t0, $t2
+		lw $t3, ($t3)									# $t3 = displayAddress + offset i
+		sw $t3, ($t4)										# Copy the value
 
-
+		addi $t2, $t2, 4
+		j for_copy_display_buffer								# i += 4
+	exit_for_copy_display_buffer:
+	jr $ra
+######################################################
 
