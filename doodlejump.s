@@ -83,10 +83,13 @@
 	message1:     .asciiz "You are on a platform\n\n"
 	
 	# Variables
-	doodlerX:     .word 10
-	doodlerY:     .word 22
-	hDirection:   .word 0
-	vVelocity:    .word 0
+	doodlerX:        .word 10
+	doodlerY:        .word 22
+	hDirection:      .word 0
+	timeLeftInAir:   .word 10
+	jumpHeight:		.word 10
+	
+	
 
 	# Every even idxex is left value is position, every odd idnxex is right value and values are platform value
 	platformPositions: #.space 512 (2 columns * 64 rows * 4 bytes)
@@ -169,22 +172,33 @@
 			
 			#Implements the falling 																	#todo
 			beqz $t9, else_on_platform
-			bnez  $t9, if_on_platform
 			if_on_platform:
-				# TODO JUMP
-				
+				# Once you land on a platform, set your timeInTheAir value to jumpheight
+				lw $t1, timeLeftInAir
+				lw $t1, jumpHeight
+				sw $t1, timeLeftInAir
 				
 				j fi_on_platform
 			else_on_platform:
-				# You are not on a platform, so you are falling (for now)
-				lw $t1, doodlerY
-				
-				addi $t1, $t1, 1
-				sw $t1, doodlerY
-			
+				# decrement your time left in the air by 1
+				lw $t1, timeLeftInAir
+				addi $t1, $t1, -1
+				sw $t1, timeLeftInAir
 				j fi_on_platform
 			fi_on_platform:
 			
+			# Move doodler
+			lw $t1, timeLeftInAir
+			lw $t2, doodlerY
+			bltz $t1, else_jumping
+			if_jumping: # Currently moving up
+				addi $t2, $t2, -1
+				j fi_jumping
+			else_jumping: # Curretnly alling
+				addi $t2, $t2, 1
+			fi_jumping:	
+			sw $t2, doodlerY
+
 			
 			
 			
@@ -410,7 +424,7 @@ copyFromDisplayBuffer:
 		
 		add $t3, $t1, $t2 									# $t3 = displayBuffer + offset i
 		add $t4, $t0, $t2
-		lw $t3, ($t3)									# $t3 = displayAddress + offset i
+		lw $t3, ($t3)									    # $t3 = displayAddress + offset i
 		sw $t3, ($t4)										# Copy the value
 
 		addi $t2, $t2, 4
