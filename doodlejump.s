@@ -37,13 +37,14 @@
 	.eqv SCREEN_BYTE_AREA 8192
 
 	# Defining some colors to be used and their pallate
-	.eqv BLUE      0x11bffe 
-	.eqv YELLOW    0xdad830
-	.eqv BLACK     0x000000
-	.eqv DGREEN    0x0c8f50
-	.eqv LGREEN    0x64bb12
+	.eqv BLUE        0x11bffe 
+	.eqv YELLOW      0xdad830
+	.eqv BLACK       0x000000
+	.eqv DGREEN      0x0c8f50
+	.eqv LGREEN      0x64bb12
+	.eqv TRANSPARENT -1
 
-	colors: .word BLUE, YELLOW, BLACK, DGREEN, LGREEN
+	colors: .word BLUE, YELLOW, BLACK, DGREEN, LGREEN, TRANSPARENT
 
 
 	# The start address for the bitmap display
@@ -53,27 +54,27 @@
 
 
 	# The bitmap for the doodler
-	doodlerArrayR:.word 0,0,1,1,0,0,0,0
-                  .word 0,1,1,1,1,0,0,1
+	doodlerArrayR:.word 5,5,1,1,5,5,5,5
+                  .word 5,1,1,1,1,5,5,1
 				 .word 1,1,2,1,2,1,1,1
-				 .word 1,1,1,1,1,1,0,1
-				 .word 3,3,3,3,3,3,0,0
-				 .word 1,1,1,1,1,1,0,0
-				 .word 2,0,0,0,2,0,0,0
-				 .word 2,2,0,0,2,2,0,0
+				 .word 1,1,1,1,1,1,5,1
+				 .word 3,3,3,3,3,3,5,5
+				 .word 1,1,1,1,1,1,5,5
+				 .word 2,5,5,5,2,5,5,5
+				 .word 2,2,5,5,2,2,5,5
 
-	doodlerArrayL:.word 0,0,0,0,1,1,0,0
-				 .word 1,0,0,1,1,1,1,0
+	doodlerArrayL:.word 5,5,5,5,1,1,5,5
+				 .word 1,5,5,1,1,1,1,5
 				 .word 1,1,1,2,1,2,1,1
-				 .word 1,0,1,1,1,1,1,1
-				 .word 0,0,3,3,3,3,3,3
-				 .word 0,0,1,1,1,1,1,1
-				 .word 0,0,0,2,0,0,0,2
-				 .word 0,0,2,2,0,0,2,2
+				 .word 1,5,1,1,1,1,1,1
+				 .word 5,5,3,3,3,3,3,3
+				 .word 5,5,1,1,1,1,1,1
+				 .word 5,5,5,2,5,5,5,2
+				 .word 5,5,2,2,5,5,2,2
 				 
 	# The bitmap for a platform
 	platformArray:.word 4,4,4,4,4,4,4,4,4,4,4,4
-				 .word 0,0,4,4,4,4,4,4,4,4,0,0
+				 .word 5,5,4,4,4,4,4,4,4,4,5,5
 	
 	# The bitmap for the sky (An array of 32x32 zeros)		 		 
 	skyArray:     .space SCREEN_BYTE_AREA
@@ -318,8 +319,11 @@ drawBitMap:
 	    	    jal  setColor           # Put the color to drwa in $v0	
 	    		move $s1, $v0	
 	    																												
-	    																												# if transparent, don't draw anything
-	    		sw   $s1 ($s0)          # Draw color in $s1 at position $s0	
+	    		
+	    		bltz $s1, fi_not_transparent	# Only draw if the color value > 0 (-1 == Transparent)
+	    		if_not_transparent:																																																			# if transparent, don't draw anything
+	    			sw   $s1 ($s0)          # Draw color in $s1 at position $s0	
+	    		fi_not_transparent:	
 	    		
 	       	lw   $t6, 0($sp)        # pop i off the stack
 	        lw   $t7, 4($sp)        # pop j off the stack       
