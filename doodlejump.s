@@ -31,17 +31,18 @@
 	# Defining constants
 	.eqv TRUE                1
 	.eqv FALSE               0
-	.eqv SCREEN_WIDTH       32
-	.eqv SCREEN_HEIGHT      64 
-	.eqv PLATFORM_WIDTH     12
-	.eqv SCREEN_BYTE_AREA 8192
+	.eqv SCREEN_WIDTH                      32
+	.eqv SCREEN_HEIGHT                     64 
+	.eqv PLATFORM_WIDTH                    12
+	.eqv SCREEN_BYTE_AREA                8192
+	.eqv SCREEN_BYTE_AREA_WITH_BUFFER    8320 	# Add an extra row on the bottom as a buffer (If we draw a platfrom on the very bottom row) 
 
 	# Defining some colors to be used and their pallate
-	.eqv BLUE        0x11bffe 
-	.eqv YELLOW      0xdad830
-	.eqv BLACK       0x000000
-	.eqv DGREEN      0x0c8f50
-	.eqv LGREEN      0x64bb12
+	.eqv BLUE         0x11bffe 
+	.eqv YELLOW       0xdad830
+	.eqv BLACK        0x000000
+	.eqv DGREEN       0x0c8f50
+	.eqv LGREEN       0x64bb12
 	.eqv TRANSPARENT -1
 
 	colors: .word BLUE, YELLOW, BLACK, DGREEN, LGREEN, TRANSPARENT
@@ -50,7 +51,7 @@
 	# The start address for the bitmap display
 	displayAddress: .word  0x10008000
 	# The buffer where where the bitmap is stored before being drawn to the screen
-	displayBuffer:  .space SCREEN_BYTE_AREA
+	displayBuffer:  .space SCREEN_BYTE_AREA_WITH_BUFFER
 
 
 	# The bitmap for the doodler
@@ -84,18 +85,20 @@
 	message1:     .asciiz "You are on a platform\n\n"
 	
 	# Variables
-	doodlerX:        .word 10
-	doodlerY:        .word 22
-	hDirection:      .word 0
-	timeLeftInAir:   .word 10
-	jumpHeight:		.word 10
+	doodlerX:              .word 6
+	doodlerY:              .word 50
+	hDirection:            .word 0
+	timeLeftInAir:         .word 6
+	jumpHeight:		      .word 6
+	
+	rowsSinceRandPlatform: .word 0
 	
 	
 
 	# Every even idxex is left value is position, every odd idnxex is right value and values are platform value
-	platformPositions: #.space 512 (2 columns * 64 rows * 4 bytes)
-	.word 0,0, 0,0, 10,0, 0,0, 0,0, 13,0, 0,0, 0,0, 0,6, 0,0, 0,0, 0,0, 0,0, 0,0, 0,0, 6,0,0 ,0, 0,0, 0,0, 0,0, 0,0, 18,0, 0,0, 0,0, 0,0, 11,0, 0,0, 0,0, 0,3, 0,0, 0,0, 1,0		# Temmp
-.text																			  # CURRENTLY HERE REMOVE ME
+	#platformPositions: .space 256 # (64 rows * 4 bytes)
+	platformPositions: .word 1,0, 0,0, 10,0, 0,0, 4,0, 0,0, 0,0, 2,0, 0,0, 21,0, 0,0, 0,7, 0,0, 0,0, 14,0, 0,0,6 ,0, 0,2, 0,0, 0,0, 0,0, 18,0, 0,0, 2,0, 0,0, 11,0, 0,0, 0,0, 0,3, 5,0, 0,0, 1,0		# Temmp
+.text
 	# Defining some useful macros
 	.macro draw (%x_size, %y_size, %x_pos, %y_pos, %bitmap)
 	    addi $sp, $sp, -4
@@ -165,24 +168,26 @@
 			
 			fi_keyboard_input:
 		
-			# Update location 	
-																									#todo
-			# Check for doodler colisions (with platform)												#todo	
+
+			# Check for doodler colisions (with platform)	
 			jal doodlerOnPlatform
-			add $t9, $zero, $v0		# 0 if you are not on a platform, 1 if you are
+			add $t9, $zero, $v0			# 0 if you are not on a platform, 1 if you are
 			
-			#Implements the falling 																	#todo
-			beqz $t9, else_on_platform
+			#Implements the falling
+			lw $t1, timeLeftInAir       #$t1 is the time left in the air
+			sle $t2, $t1, $zero			# True if you are falling, false otherwise
+			and $t9, $t9, $t2 		 	# You are falling and you hit a platform
+			
+			beqz $t9, else_on_platform	# You are either still jumping or you don't hit a platform, so don't just again
 			if_on_platform:
 				# Once you land on a platform, set your timeInTheAir value to jumpheight
-				lw $t1, timeLeftInAir
+				
 				lw $t1, jumpHeight
 				sw $t1, timeLeftInAir
 				
 				j fi_on_platform
 			else_on_platform:
 				# decrement your time left in the air by 1
-				lw $t1, timeLeftInAir
 				addi $t1, $t1, -1
 				sw $t1, timeLeftInAir
 				j fi_on_platform
@@ -200,13 +205,12 @@
 			fi_jumping:	
 			sw $t2, doodlerY
 
-			
-			
-			
-			
-			
-			
+
 		# Update location of platforms and other objects 													#todo
+		
+		jal shiftPlatformsDownIfNeeded
+		
+		
 		
 		# Redraw the screen
 			# Draw the blue background 
@@ -241,6 +245,63 @@
 		# End the program
 		li $v0, 10
 		syscall 
+#######################################################
+shiftPlatformsDownIfNeeded:
+	la $t0, platformPositions
+	lw $t1, doodlerY
+	
+	bgt $t1, 25, fi_platforms_should_drop		# IF the doodler is above than Y = 25, drop the platforms
+	if_platforms_should_drop:
+		add $t2, $zero, 252					# i = 252 (63*4)
+		for_platform_shift:				
+			add $t3, $t0, $t2				# The adresss we're updating
+			lw 	$t4, -4($t3)                 # 1 word before the address, where we get the data
+			sw  $t4, 0($t3)					# t3 = arrayAdress + offset into array
+			add $t2, $t2, -4						# i -= 4
+			beq $t2, 0, exit_platform_shift		# Exit if ==4
+			
+			j for_platform_shift
+		exit_platform_shift:
+		
+		# Randomly generate platforms
+		lw $t1 jumpHeight
+		lw $t2 rowsSinceRandPlatform
+		
+		
+		# E(rowsSinceRandPlatform) = -rowsSinceRandPlatform + (jumpHeight + 1)			This equation will be used to calculate the end random value for the chances to make a platform
+		
+		mul  $t5, $t2, -1						# $t5 = -rowsSinceRandPlatform
+		addi $t1, $t1, 1							# $t1 = (jumpHeight + 1)+1
+		add $t1, $t1, $t5						# t1 = E(rowsSinceRandPlatform)
+		
+		li  $v0, 42								# A random number between 1 to E(rowsSinceRandPlatform)
+		add $a1, $zero, $t1	
+		syscall
+		add $t1, $zero, $a0
+		
+		bne $t1, 0, else_makePlatform				# If you generate a 0, make a platform
+		blt $t2, 6, else_makePlatform				# Never have platforms closer than 4 units apart
+		if_makePlatform:
+			li $v0, 42
+			li $a1, 19  # 31 -12
+			syscall
+		
+			addi $t4, $a0,1
+			sw  $t4, 0($t0)	
+		
+			addi $t2, $zero, 0			# Sets the rows since random platform generation to 0
+			j fi_makePlatform
+		else_makePlatform:
+			sw  $zero, 0($t0)	
+		
+		fi_makePlatform:
+		addi $t2, $t2, 1
+		sw $t2, rowsSinceRandPlatform
+		
+		
+		
+	fi_platforms_should_drop:
+	jr $ra
 
 
 #######################################################
