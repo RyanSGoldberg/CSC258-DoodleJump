@@ -18,7 +18,7 @@
 #
 # Which approved additional features have been implemented?
 # (See the assignment handout for the list of additional features)
-# 1. (fill in the feature, if any)
+# 1. 4a - Score/scoreboard
 # 2. (fill in the feature, if any)
 # 3. (fill in the feature, if any)
 # ... (add more if necessary)
@@ -44,8 +44,9 @@
 	.eqv DGREEN       0x0c8f50
 	.eqv LGREEN       0x64bb12
 	.eqv TRANSPARENT -1
+	.eqv GREYBLUE     0x5ba0b7
 
-	colors: .word BLUE, YELLOW, BLACK, DGREEN, LGREEN, TRANSPARENT
+	colors: .word BLUE, YELLOW, BLACK, DGREEN, LGREEN, TRANSPARENT, GREYBLUE
 
 
 	# The start address for the bitmap display
@@ -80,6 +81,9 @@
 	# The bitmap for the sky (An array of 32x32 zeros)		 		 
 	skyArray:     .space SCREEN_BYTE_AREA
 	
+	#Bitmap for the banner
+	bannerArray:  .word 6:256
+	
 	# The bitmap for GameOver
 	gameOverArray:.word 5,5,5,2,2,2,5,5,5,5,5,2,5,5,5,5,2,5,2,5,5,5,2,2,2			# 			draw (16, 25, 0, 0 gameOverArray)
                   .word 5,5,2,5,5,5,2,5,5,5,2,5,2,5,5,2,5,2,5,2,5,2,5,5,5
@@ -109,6 +113,7 @@
     sevenArray: .word 2,2,2, 5,5,2, 5,5,2, 5,5,2, 5,5,2
     eightArray: .word 2,2,2, 2,5,2, 2,2,2, 2,5,2, 2,2,2
     nineArray:  .word 2,2,2, 2,5,2, 2,2,2, 5,5,2, 5,5,2
+    numArray:   .word zeroArray,oneArray,twoArray,threeArray,fourArray,fiveArray,sixArray,sevenArray,eightArray,nineArray
     
 	# Strings
 	newLine:      .asciiz "\n"
@@ -120,6 +125,7 @@
 	hDirection:            .word 0
 	timeLeftInAir:         .word 6
 	jumpHeight:		      .word 6
+	score:                 .word 1234
 	
 	rowsSinceRandPlatform: .word 0
 	
@@ -211,9 +217,20 @@
 			beqz $t9, else_on_platform	# You are either still jumping or you don't hit a platform, so don't just again
 			if_on_platform:
 				# Once you land on a platform, set your timeInTheAir value to jumpheight
-				
 				lw $t1, jumpHeight
 				sw $t1, timeLeftInAir
+				
+				# Increment the score by 1
+				lw $t1, score
+				addi $t1, $t1, 1
+				sw $t1, score
+				
+				li, $v0, 1
+				add $a0, $zero, $t1
+				syscall
+				li, $v0, 4
+				la $a0, newLine
+				syscall
 				
 				j fi_on_platform
 			else_on_platform:
@@ -222,7 +239,6 @@
 				sw $t1, timeLeftInAir
 				j fi_on_platform
 			fi_on_platform:
-			
 			
 			# Checks if the doodler has fit the bottom row and the game is over
 			jal isGameOver
@@ -252,10 +268,14 @@
 			# Draw the blue background 
 			draw (SCREEN_HEIGHT, SCREEN_WIDTH, 0, 0 skyArray)
 
-
+			# Draw the banner
+			draw (8, SCREEN_WIDTH, 0, 0 bannerArray)
 
 			# Draw platforms to buffer
 			jal drawPlatforms
+			
+			# Draw the score on the screen
+			jal drawScore
 			
 			# The position of the Doodler is (doodlerX, doodlerY)
 			lw $t1, doodlerY
@@ -283,6 +303,62 @@
 		# End the program
 		li $v0, 10
 		syscall 
+#######################################################
+drawScore:
+	la $t9, numArray
+	lw $t0, score				#t0 = current score
+	
+	add  $t1, $zero, $zero		# i = t1 = 0
+	addi $t2, $zero, 1000		# t2 = 1000
+	for_digit_in_score:
+		beq $t1, 4, exit_digit_in_score
+		
+		div $t0, $t2				# $t3 = Score (with first i digits chopped off) // 10^i 
+		
+		mfhi $t0					# The remainder when dividing by 10^i
+		mflo $t4					# The ith digit
+		
+		# Store the registers on the stack
+		addi $sp, $sp, -20
+	     sw   $ra, 0($sp)
+	     sw   $t9, 4($sp)       
+		 sw   $t0, 8($sp)
+	     sw   $t1, 12($sp)
+	     sw   $t2, 16($sp)
+	      
+	    # The offset into the numbers array of the current digit
+	    mul $t4, $t4, 4
+		add $t4, $t4, $t9
+	     
+	     # The x position of the number
+	     mul  $t5,$t1, 4
+	     addi $t5, $t5, 1
+	     
+	    # Draw the digit to the buffer array (We can't use the draw macro here since we don't pass in an bitmap label, but instead the address)
+	    		addi $sp, $sp, -4
+			addi $a0, $zero, 5
+			addi $a1, $zero, 3
+			add $a2, $zero, 1
+			add $a3, $zero, $t5
+			la $t0, ($t4)
+			lw $t0, ($t0)
+			sw $t0, 0($sp)
+			jal drawBitMap    
+			addi $sp, $sp, 4
+	    
+	    # Restore the values from the stack and dealocate the memory
+	    lw   $ra, 0($sp)
+	    lw   $t9, 4($sp)       
+		lw   $t0, 8($sp)
+	    lw   $t1, 12($sp)
+	    lw   $t2, 16($sp)
+	    addi $sp, $sp, 20
+		
+		div $t2, $t2, 10		# $t2  = $t2 /10
+		addi $t1, $t1, 1		# i++
+		j for_digit_in_score
+	exit_digit_in_score:
+		jr $ra
 #######################################################
 isGameOver:
 	lw $t0, doodlerY
