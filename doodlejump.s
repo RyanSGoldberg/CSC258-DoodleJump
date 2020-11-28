@@ -14,7 +14,7 @@
 #
 # Which milestone is reached in this submission?
 # (See the assignment handout for descriptions of the milestones)
-# - Milestone 1/[2]/3/4/5 (choose the one the applies)
+# - Milestone 1/2/[3]/4/5 (choose the one the applies)
 #
 # Which approved additional features have been implemented?
 # (See the assignment handout for the list of additional features)
@@ -80,6 +80,36 @@
 	# The bitmap for the sky (An array of 32x32 zeros)		 		 
 	skyArray:     .space SCREEN_BYTE_AREA
 	
+	# The bitmap for GameOver
+	gameOverArray:.word 5,5,5,2,2,2,5,5,5,5,5,2,5,5,5,5,2,5,2,5,5,5,2,2,2			# 			draw (16, 25, 0, 0 gameOverArray)
+                  .word 5,5,2,5,5,5,2,5,5,5,2,5,2,5,5,2,5,2,5,2,5,2,5,5,5
+                  .word 5,5,2,5,5,5,5,5,5,2,5,5,5,2,5,2,5,2,5,2,5,2,5,5,5
+                  .word 5,5,2,5,5,2,2,2,5,2,5,5,5,2,5,2,5,2,5,2,5,2,2,2,2
+                  .word 5,5,2,5,5,5,2,5,5,2,2,2,2,2,5,2,5,2,5,2,5,2,5,5,5
+                  .word 5,5,2,5,5,5,2,5,5,2,5,5,5,2,5,2,5,2,5,2,5,2,5,5,5
+                  .word 5,5,5,2,2,2,5,5,5,2,5,5,5,2,5,2,5,2,5,2,5,5,2,2,2
+                  .word 5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,5
+                  .word 5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,5
+                  .word 5,5,5,2,2,2,5,5,5,2,5,5,5,2,5,5,2,2,2,5,5,5,2,2,5
+                  .word 5,5,2,5,5,5,2,5,5,2,5,5,5,2,5,2,5,5,5,5,5,2,5,5,2
+                  .word 5,5,2,5,5,5,2,5,5,2,5,5,5,2,5,2,5,5,5,5,5,2,5,5,2
+                  .word 5,5,2,5,5,5,2,5,5,2,5,5,5,2,5,2,2,2,2,5,5,2,2,2,5
+                  .word 5,5,2,5,5,5,2,5,5,2,5,5,5,2,5,2,5,5,5,5,5,2,2,5,5
+                  .word 5,5,2,5,5,5,2,5,5,5,2,5,2,5,5,2,5,5,5,5,5,2,5,2,5
+                  .word 5,5,5,2,2,2,5,5,5,5,5,2,5,5,5,5,2,2,2,5,5,2,5,5,2
+                  
+    
+    zeroArray:  .word 2,2,2, 2,5,2, 2,5,2, 2,5,2, 2,2,2
+    oneArray:   .word 2,2,5, 5,2,5, 5,2,5, 5,2,5, 2,2,2
+    twoArray:   .word 2,2,2, 5,5,2, 2,2,2, 2,5,5, 2,2,2
+    threeArray: .word 2,2,2, 5,5,2, 2,2,2, 5,5,2, 2,2,2
+    fourArray:  .word 2,5,2, 2,5,2, 2,2,2, 5,5,2, 5,5,2
+    fiveArray:  .word 2,2,2, 2,5,5, 2,2,2, 5,5,2, 2,2,2
+    sixArray:   .word 2,2,2, 2,5,5, 2,2,2, 2,5,2, 2,2,2
+    sevenArray: .word 2,2,2, 5,5,2, 5,5,2, 5,5,2, 5,5,2
+    eightArray: .word 2,2,2, 2,5,2, 2,2,2, 2,5,2, 2,2,2
+    nineArray:  .word 2,2,2, 2,5,2, 2,2,2, 5,5,2, 5,5,2
+    
 	# Strings
 	newLine:      .asciiz "\n"
 	message1:     .asciiz "You are on a platform\n\n"
@@ -97,7 +127,7 @@
 
 	# Every even idxex is left value is position, every odd idnxex is right value and values are platform value
 	#platformPositions: .space 256 # (64 rows * 4 bytes)
-	platformPositions: .word 1,0, 0,0, 10,0, 0,0, 4,0, 0,0, 0,0, 2,0, 0,0, 21,0, 0,0, 0,7, 0,0, 0,0, 14,0, 0,0,6 ,0, 0,2, 0,0, 0,0, 0,0, 18,0, 0,0, 2,0, 0,0, 11,0, 0,0, 0,0, 0,3, 5,0, 0,0, 1,0		# Temmp
+	platformPositions: .word 0,0, 0,0, 10,0, 0,0, 0,0, 0,0, 0,0, 2,0, 0,0, 21,0, 0,0, 0,7, 0,0, 0,0, 14,0, 0,0,6 ,0, 0,2, 0,0, 0,0, 0,0, 18,0, 0,0, 2,0, 0,0, 11,0, 0,0, 0,0, 0,3, 0,0, 0,0, 1,0		# Temmp
 .text
 	# Defining some useful macros
 	.macro draw (%x_size, %y_size, %x_pos, %y_pos, %bitmap)
@@ -193,6 +223,14 @@
 				j fi_on_platform
 			fi_on_platform:
 			
+			
+			# Checks if the doodler has fit the bottom row and the game is over
+			jal isGameOver
+			beqz $v0, fi_gameOver
+			if_gameOver:
+				j  exitLoop
+			fi_gameOver:
+			
 			# Move doodler
 			lw $t1, timeLeftInAir
 			lw $t2, doodlerY
@@ -206,15 +244,15 @@
 			sw $t2, doodlerY
 
 
-		# Update location of platforms and other objects 													#todo
-		
+		# Update location of platforms and other objects
 		jal shiftPlatformsDownIfNeeded
-		
 		
 		
 		# Redraw the screen
 			# Draw the blue background 
 			draw (SCREEN_HEIGHT, SCREEN_WIDTH, 0, 0 skyArray)
+
+
 
 			# Draw platforms to buffer
 			jal drawPlatforms
@@ -246,6 +284,11 @@
 		li $v0, 10
 		syscall 
 #######################################################
+isGameOver:
+	lw $t0, doodlerY
+	sgt $v0, $t0, 55
+	jr $ra
+#######################################################
 shiftPlatformsDownIfNeeded:
 	la $t0, platformPositions
 	lw $t1, doodlerY
@@ -275,6 +318,7 @@ shiftPlatformsDownIfNeeded:
 		add $t1, $t1, $t5						# t1 = E(rowsSinceRandPlatform)
 		
 		li  $v0, 42								# A random number between 1 to E(rowsSinceRandPlatform)
+		li $a0, 0
 		add $a1, $zero, $t1	
 		syscall
 		add $t1, $zero, $a0
@@ -283,6 +327,7 @@ shiftPlatformsDownIfNeeded:
 		blt $t2, 6, else_makePlatform				# Never have platforms closer than 4 units apart
 		if_makePlatform:
 			li $v0, 42
+			li $a0, 0
 			li $a1, 19  # 31 -12
 			syscall
 		
