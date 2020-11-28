@@ -19,9 +19,8 @@
 # Which approved additional features have been implemented?
 # (See the assignment handout for the list of additional features)
 # 1. 4a - Score/scoreboard
-# 2. (fill in the feature, if any)
-# 3. (fill in the feature, if any)
-# ... (add more if necessary)
+# 2. 4b - Game Over / retry
+# 3. 5d - Fancier graphics?
 #
 # Any additional information that the TA needs to know:
 # - (write here, if any)
@@ -29,8 +28,6 @@
 #####################################################################
 .data
 	# Defining constants
-	.eqv TRUE                1
-	.eqv FALSE               0
 	.eqv SCREEN_WIDTH                      32
 	.eqv SCREEN_HEIGHT                     64 
 	.eqv PLATFORM_WIDTH                    12
@@ -85,7 +82,7 @@
 	bannerArray:  .word 6:256
 	
 	# The bitmap for GameOver
-	gameOverArray:.word 5,5,5,2,2,2,5,5,5,5,5,2,5,5,5,5,2,5,2,5,5,5,2,2,2			# 			draw (16, 25, 0, 0 gameOverArray)
+	gameOverArray:.word 5,5,5,2,2,2,5,5,5,5,5,2,5,5,5,5,2,5,2,5,5,5,2,2,2	
                   .word 5,5,2,5,5,5,2,5,5,5,2,5,2,5,5,2,5,2,5,2,5,2,5,5,5
                   .word 5,5,2,5,5,5,5,5,5,2,5,5,5,2,5,2,5,2,5,2,5,2,5,5,5
                   .word 5,5,2,5,5,2,2,2,5,2,5,5,5,2,5,2,5,2,5,2,5,2,2,2,2
@@ -102,7 +99,20 @@
                   .word 5,5,2,5,5,5,2,5,5,5,2,5,2,5,5,2,5,5,5,5,5,2,5,2,5
                   .word 5,5,5,2,2,2,5,5,5,5,5,2,5,5,5,5,2,2,2,5,5,2,5,5,2
                   
-    
+     clickSArray: .word 5,2,2,2,5,2,5,5,5,2,5,2,2,2,5,2,5,2,5,5,5,5,2,2,2,5,5
+ 				 .word 5,2,5,5,5,2,5,5,5,2,5,2,5,5,5,2,5,2,5,5,5,5,2,5,5,5,5
+ 				 .word 5,2,5,5,5,2,5,5,5,2,5,2,5,5,5,2,2,5,5,5,5,5,2,2,2,5,5
+ 				 .word 5,2,5,5,5,2,5,5,5,2,5,2,5,5,5,2,5,2,5,5,5,5,5,5,2,5,5
+ 				 .word 5,2,2,2,5,2,2,2,5,2,5,2,2,2,5,2,5,2,5,5,5,5,2,2,2,5,5
+ 				 .word 5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,5
+ 				 .word 5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,5
+ 				 .word 5,2,2,2,5,2,2,2,5,5,5,5,2,2,2,5,2,5,5,5,5,2,5,5,2,5,2
+ 				 .word 5,5,2,5,5,2,5,2,5,5,5,5,2,5,2,5,2,5,5,5,2,5,2,5,2,5,2
+ 				 .word 5,5,2,5,5,2,5,2,5,5,5,5,2,2,2,5,2,5,5,5,2,2,2,5,5,2,5
+ 				 .word 5,5,2,5,5,2,5,2,5,5,5,5,2,5,5,5,2,5,5,5,2,5,2,5,5,2,5
+ 				 .word 5,5,2,5,5,2,2,2,5,5,5,5,2,5,5,5,2,2,2,5,2,5,2,5,5,2,5
+                  
+    # Bitmaps of the numebrs 0-9
     zeroArray:  .word 2,2,2, 2,5,2, 2,5,2, 2,5,2, 2,2,2
     oneArray:   .word 2,2,5, 5,2,5, 5,2,5, 5,2,5, 2,2,2
     twoArray:   .word 2,2,2, 5,5,2, 2,2,2, 2,5,5, 2,2,2
@@ -120,20 +130,24 @@
 	message1:     .asciiz "You are on a platform\n\n"
 	
 	# Variables
-	doodlerX:              .word 6
-	doodlerY:              .word 50
+	gameState:			  .word 0			# 0 Is the start menu, 1 is playing the game
+	gamesPlayed:           .word -1
+	score:                 .word 0
+	
+	
+	doodlerX:              .word 0
+	doodlerY:              .word 0
 	hDirection:            .word 0
 	timeLeftInAir:         .word 6
 	jumpHeight:		      .word 6
-	score:                 .word 1234
-	
 	rowsSinceRandPlatform: .word 0
 	
 	
 
-	# Every even idxex is left value is position, every odd idnxex is right value and values are platform value
-	#platformPositions: .space 256 # (64 rows * 4 bytes)
-	platformPositions: .word 0,0, 0,0, 10,0, 0,0, 0,0, 0,0, 0,0, 2,0, 0,0, 21,0, 0,0, 0,7, 0,0, 0,0, 14,0, 0,0,6 ,0, 0,2, 0,0, 0,0, 0,0, 18,0, 0,0, 2,0, 0,0, 11,0, 0,0, 0,0, 0,3, 0,0, 0,0, 1,0		# Temmp
+	# Every value > 1 is the x coord -1 if the platform, 0 means there is no platform
+	initialPlatformPositions: .word  0,0,0,0,10,0,0,0,0,0,0,0,0,0,2,0,0,0,21,0,0,0,0,7,0,0,0,0,14,0,0,0,0,0,0,2,0,0,0,0,0,0,18,0,0,0,2,0,0,0,11,0,0,0,0,0,0,3,0,0,0,0,1,0
+	startMenuPlatformPosition: .word 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,10,0,0
+	platformPositions:		 .space 256
 .text
 	# Defining some useful macros
 	.macro draw (%x_size, %y_size, %x_pos, %y_pos, %bitmap)
@@ -149,8 +163,9 @@
 	.end_macro
 
 	main:
+		jal setGameStateToZero # Set the gameStateToZero
+	
 		mainLoop:
-		
 		# Check for keyboard input
 		lw $t0, 0xffff0000				   # Check if a key has been pressed (a 1 is stored here)
 		beq $t0, 1, if_keyboard_input		   # if $t0 == 1 go to if_keyboard_input	 
@@ -195,10 +210,8 @@
 					sw $t1, hDirection # Sets the direction as right
 					j fi_keyboard_input  # Exit if statement
 				respond_to_S:
-					li $v0, 1
-					addi, $a0, $zero, 0
-					syscall
-					j fi_keyboard_input  # Exit if statement
+					jal setGameStateToOne		# Reset the game to the inital state
+					j fi_keyboard_input      # Exit if statement
 				respond_to_C:
 					j  exitLoop
 			
@@ -224,14 +237,7 @@
 				lw $t1, score
 				addi $t1, $t1, 1
 				sw $t1, score
-				
-				li, $v0, 1
-				add $a0, $zero, $t1
-				syscall
-				li, $v0, 4
-				la $a0, newLine
-				syscall
-				
+
 				j fi_on_platform
 			else_on_platform:
 				# decrement your time left in the air by 1
@@ -244,7 +250,7 @@
 			jal isGameOver
 			beqz $v0, fi_gameOver
 			if_gameOver:
-				j  exitLoop
+				jal setGameStateToZero 	# Go to the menu
 			fi_gameOver:
 			
 			# Move doodler
@@ -268,14 +274,33 @@
 			# Draw the blue background 
 			draw (SCREEN_HEIGHT, SCREEN_WIDTH, 0, 0 skyArray)
 
-			# Draw the banner
-			draw (8, SCREEN_WIDTH, 0, 0 bannerArray)
-
-			# Draw platforms to buffer
-			jal drawPlatforms
+			# Draw the screen differently depending on the game state (0 = menu, 1 = playing)
+			lw $t0, gameState
+			beqz  $t0, else_draw_gameElements
+				# Draw the banner
+				draw (8, SCREEN_WIDTH, 0, 0 bannerArray)
+				
+				# Draw platforms to buffer
+				jal drawPlatforms
 			
-			# Draw the score on the screen
-			jal drawScore
+				# Draw the score on the screen
+				jal drawScore
+				j fi_draw_gameElements
+			else_draw_gameElements:
+				# Draw platforms to buffer
+				jal drawPlatforms
+				
+				# Loads in the number of gamesPlayed
+				lw   $t0, gamesPlayed
+
+				# If gamesPlayed >= 1, then you have died so display gameOver
+				bltz $t0, fi_gameLost
+				if_gameLost:
+					draw (16, 25, 1, 2 gameOverArray)
+				fi_gameLost:
+				draw (12, 27, 30, 1 clickSArray)
+			fi_draw_gameElements:
+
 			
 			# The position of the Doodler is (doodlerX, doodlerY)
 			lw $t1, doodlerY
@@ -294,7 +319,7 @@
 			
 		# Sleep
 		li $v0, 32
-		li $a0, 1 # 1/3 second sleep
+		li $a0, 3 # 1/3 second sleep
 		syscall
 		
 		j mainLoop
@@ -303,6 +328,79 @@
 		# End the program
 		li $v0, 10
 		syscall 
+#######################################################
+setGameStateToZero:	
+	addi $t0, $zero, 0
+	sw $t0, gameState 
+	
+	# Start menu X and Y position
+	addi $t0, $zero, 11
+	sw $t0, doodlerX 			# doodlerX = 11
+	
+	addi $t0, $zero, 50
+	sw $t0, doodlerY 			# doodlerX = 11
+	
+	# Copy the start Menu platform positions to the platformPositions array
+	la $t0, platformPositions
+	la $t1, startMenuPlatformPosition
+	
+	add $t2, $zero, 252					# i = 252 (63*4)
+	for_platform_copy_start_menu:				
+		add $t3, $t0, $t2				# The address we're writing to
+		add $t4, $t1, $t2				# The address we're reading from
+		
+		lw 	$t4, ($t4)                 # 1 word before the address, where we get the data
+		sw  $t4, ($t3)					# t3 = arrayAdress + offset into array
+		add $t2, $t2, -4						# i -= 4
+		
+		beq $t2, -4, exit_platform_copy_start_menu		# Exit if ==4	
+		j for_platform_copy_start_menu
+	exit_platform_copy_start_menu:
+	jr $ra
+	
+#######################################################
+setGameStateToOne:
+	# Increment the number of games played
+	lw   $t0, gamesPlayed
+	addi $t0, $t0, 1
+	sw $t0, gamesPlayed
+	
+	# Set the game state to 1
+	addi $t0, $zero, 1
+	sw $t0, gameState 
+
+	add $t0, $zero , $zero
+
+	sw $t0, hDirection			# hDirection=0
+	sw $t0, score				# score = 0
+	sw $t0, rowsSinceRandPlatform	# rowsSinceRandPlatform = 0
+
+	addi $t0, $zero, 6
+	sw $t0, doodlerX				# doodlerX = 6
+	sw $t0, timeLeftInAir			# timeLeftInAir =6
+	sw $t0, jumpHeight			# jumpHeight = 6
+	
+	addi $t0, $zero, 50
+	sw $t0, doodlerY 			# doodlerY = 50
+	
+	# Copy the initial platfrom positions to the platformPositions array
+	la $t0, platformPositions
+	la $t1, initialPlatformPositions
+	
+	add $t2, $zero, 252					# i = 252 (63*4)
+	for_platform_copy:				
+		add $t3, $t0, $t2				# The address we're writing to
+		add $t4, $t1, $t2				# The address we're reading from
+		
+		lw 	$t4, ($t4)                 # 1 word before the address, where we get the data
+		sw  $t4, ($t3)					# t3 = arrayAdress + offset into array
+		add $t2, $t2, -4						# i -= 4
+		
+		beq $t2, -4, exit_platform_copy		# Exit if ==4	
+		j for_platform_copy
+	exit_platform_copy:
+	jr $ra
+	
 #######################################################
 drawScore:
 	la $t9, numArray
