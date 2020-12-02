@@ -14,16 +14,16 @@
 #
 # Which milestone is reached in this submission?
 # (See the assignment handout for descriptions of the milestones)
-# - Milestone 1/2/[3]/4/5 (choose the one the applies)
+# - Milestone 1/2/3/4/[5] (choose the one the applies)
 #
 # Which approved additional features have been implemented?
 # (See the assignment handout for the list of additional features)
 # 1. 4a - Score/scoreboard
 # 2. 4b - Game Over / retry
-# 3. 5d - Fancier graphics?
+# 3. 5d - Fancier graphics
 #
 # Any additional information that the TA needs to know:
-# - (write here, if any)
+# - The code requires a little endian architecture, spesifically lines ___________________
 #
 #####################################################################
 .data
@@ -35,15 +35,23 @@
 	.eqv SCREEN_BYTE_AREA_WITH_BUFFER    8320 	# Add an extra row on the bottom as a buffer (If we draw a platfrom on the very bottom row) 
 
 	# Defining some colors to be used and their pallate
-	.eqv BLUE         0x11bffe 
+	.eqv LBLUE         0x11bffe 
 	.eqv YELLOW       0xdad830
 	.eqv BLACK        0x000000
 	.eqv DGREEN       0x0c8f50
 	.eqv LGREEN       0x64bb12
 	.eqv TRANSPARENT -1
 	.eqv GREYBLUE     0x5ba0b7
+	.eqv GREY		 0x7a7a7a
+	.eqv DBLUE		 0x0021ff
+	.eqv BROWN  	  	 0x974c01
+	.eqv BYELLOW		 0xd3ff00
+	.eqv RED			 0xff1900
+	.eqv ORANGE		 0xff7900
+	.eqv WHITE		 0xffffff
+	
 
-	colors: .word BLUE, YELLOW, BLACK, DGREEN, LGREEN, TRANSPARENT, GREYBLUE
+	colors: .word LBLUE, YELLOW, BLACK, DGREEN, LGREEN, TRANSPARENT, GREYBLUE, GREY, DBLUE, BROWN, BYELLOW, RED, ORANGE, WHITE
 
 
 	# The start address for the bitmap display
@@ -72,8 +80,26 @@
 				 .word 5,5,2,2,5,5,2,2
 				 
 	# The bitmap for a platform
-	platformArray:.word 4,4,4,4,4,4,4,4,4,4,4,4
-				 .word 5,5,4,4,4,4,4,4,4,4,5,5
+	regularPlatformArray: .word 4,4,4,4,4,4,4,4,4,4,4,4
+				         .word 5,5,4,4,4,4,4,4,4,4,5,5
+				 
+	springPlatformArray: .word 7,7,7,4,7,7,7,7,4,7,7,7
+				        .word 5,7,4,4,4,7,7,4,4,4,7,5
+				        
+	movingPlatformArray: .word 8,8,8,8,8,8,8,8,8,8,8,8
+						.word 5,5,8,8,8,8,8,8,8,8,5,5
+						
+	brokenPlatformArray:
+						.word 9,9,9,9,9,9,5,9,9,9,9,9
+						.word 5,5,9,9,9,5,9,9,9,9,5,5
+	
+	hotOnePlatformArray: .word 10,10,10,10,10,10,10,10,10,10,10,10
+						.word 5,5,10,10,10,10,10,10,10,10,5,5
+	
+	hotTwoPlatformArray: .word 11,11,12,12,10,13,13,10,12,12,11,11
+						.word  5,11,11,12,12,10,10,12,12,11,11, 5
+	
+	platformArrays:      .word regularPlatformArray, springPlatformArray, movingPlatformArray, brokenPlatformArray, hotOnePlatformArray, hotTwoPlatformArray
 	
 	# The bitmap for the sky (An array of 32x32 zeros)		 		 
 	skyArray:     .space SCREEN_BYTE_AREA
@@ -125,6 +151,9 @@
     nineArray:  .word 2,2,2, 2,5,2, 2,2,2, 5,5,2, 5,5,2
     numArray:   .word zeroArray,oneArray,twoArray,threeArray,fourArray,fiveArray,sixArray,sevenArray,eightArray,nineArray
     
+    #Exponential distributed numbers between 0 and 4 ([int(5.0*e**(-1.0*x/20.0)) for x in range(100)])
+    distribution: .word 4, 4, 4, 4, 4, 4, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
+    
 	# Strings
 	newLine:      .asciiz "\n"
 	message1:     .asciiz "You are on a platform\n\n"
@@ -146,10 +175,10 @@
 
 	# Every value > 1 is the x coord -1 if the platform, 0 means there is no platform
 	initialPlatformPositions: .word  0,0,0,0,10,0,0,0,0,0,0,0,0,0,2,0,0,0,21,0,0,0,0,7,0,0,0,0,14,0,0,0,0,0,0,2,0,0,0,0,0,0,18,0,0,0,2,0,0,0,11,0,0,0,0,0,0,3,0,0,0,0,1,0
-	startMenuPlatformPosition: .word 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,10,0,0
+	startMenuPlatformPosition: .word 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,10,0,0	
 	platformPositions:		 .space 256
 .text
-	# Defining some useful macros
+	# Draw a label bitmap to the screen
 	.macro draw (%x_size, %y_size, %x_pos, %y_pos, %bitmap)
 	    addi $sp, $sp, -4
 		addi $a0, $zero, %x_size
@@ -157,6 +186,19 @@
 		add $a2, $zero, %x_pos
 		add $a3, $zero, %y_pos
 		la $t0, %bitmap
+		sw $t0, 0($sp)
+		jal drawBitMap    
+		addi $sp, $sp, 4
+	.end_macro
+
+	# Draw an bitmap stored starting at address to the screen
+	.macro drawR (%x_size, %y_size, %x_pos, %y_pos, %address)
+	    addi $sp, $sp, -4
+		addi $a0, $zero, %x_size
+		addi $a1, $zero, %y_size
+		add $a2, $zero, %x_pos
+		add $a3, $zero, %y_pos
+		add $t0, $zero, %address
 		sw $t0, 0($sp)
 		jal drawBitMap    
 		addi $sp, $sp, 4
@@ -221,6 +263,7 @@
 			# Check for doodler colisions (with platform)	
 			jal doodlerOnPlatform
 			add $t9, $zero, $v0			# 0 if you are not on a platform, 1 if you are
+			add $t8, $zero, $v1			# Store the platform type in $t8
 			
 			#Implements the falling
 			lw $t1, timeLeftInAir       #$t1 is the time left in the air
@@ -229,15 +272,63 @@
 			
 			beqz $t9, else_on_platform	# You are either still jumping or you don't hit a platform, so don't just again
 			if_on_platform:
-				# Once you land on a platform, set your timeInTheAir value to jumpheight
-				lw $t1, jumpHeight
-				sw $t1, timeLeftInAir
+				beq $t8, 1, else_springJump		# If you're on a spring platform do a special jump
+				beq $t8, 3, else_brokenJump		# If you're on a broken platform do fall and break the platform
+				beq $t8, 4, else_hotOneJump		# If you're on a hotOne platform prime the platform for next time
+				beq $t8, 5, else_hotTwoJump		# If you're on a hotTwo platform end the game since its 'hot'
 				
+				if_regJump:	# Jump 6 units high on a regular jump
+					addi $t1, $zero, 6
+					sw   $t1, jumpHeight
+					sw   $t1, timeLeftInAir
+					j fi_jumps
+				else_springJump:	# Jump 15 units high when on a spring
+					addi $t1, $zero, 15
+					sw   $t1, jumpHeight
+					sw   $t1, timeLeftInAir
+					j fi_jumps
+				else_brokenJump:	# Keep falling if you land on a broken plaform and break the platform
+					lw   $t1, timeLeftInAir
+					addi $t1, $t1, -1
+					sw   $t1, timeLeftInAir
+					
+					# Remove the platform once its jumped on
+					lw   $t2, doodlerY
+					addi $t2, $t2, 8					# The offet to the platform which the doodler is standing on
+					mul $t2, $t2, 4
+					la $t2, platformPositions($t2)	# The address spesifing the platform which the doodler is currently on
+					sw $zero, ($t2)					# Remove the platform
+					
+					j fi_jumps
+				else_hotOneJump: # Jump normally but set the platform to kill the player on the next landing
+					addi $t1, $zero, 6
+					sw   $t1, jumpHeight
+					sw   $t1, timeLeftInAir
+				
+					lw   $t2, doodlerY
+					addi $t2, $t2, 8					# The offet to the platform which the doodler is standing on
+					mul $t2, $t2, 4
+					la $t2, platformPositions($t2)	# The address spesifing the platform which the doodler is currently on
+					addi $t9, $zero, 5
+					sb $t9, 1($t2)					# make the platform a type 2 hot
+					j fi_jumps
+				else_hotTwoJump: # Kill the player when it lands on the platform
+					jal setGameStateToZero 	# Go to the menu
+				fi_jumps:
+# FIXME: SCORE AND SOUND				
 				# Increment the score by 1
 				lw $t1, score
 				addi $t1, $t1, 1
 				sw $t1, score
 
+				# Make a jump sound
+				li $v0,31
+				addi $a0, $zero, 75	# Pitch
+				addi $a1, $zero, 150		# Duration (millis)
+				addi $a2, $zero, 115		# Instrument (Steel drum)
+				addi $a3, $zero, 70		# Volume
+				syscall
+				
 				j fi_on_platform
 			else_on_platform:
 				# decrement your time left in the air by 1
@@ -488,7 +579,10 @@ shiftPlatformsDownIfNeeded:
 		# E(rowsSinceRandPlatform) = -rowsSinceRandPlatform + (jumpHeight + 1)			This equation will be used to calculate the end random value for the chances to make a platform
 		
 		mul  $t5, $t2, -1						# $t5 = -rowsSinceRandPlatform
-		addi $t1, $t1, 1							# $t1 = (jumpHeight + 1)+1
+####		addi $t1, $t1, 1							# $t1 = (jumpHeight + 1), note jumpHeight=6 for now
+# TEMP::::
+		addi $t1, $zero, 7			
+		
 		add $t1, $t1, $t5						# t1 = E(rowsSinceRandPlatform)
 		
 		li  $v0, 42								# A random number between 1 to E(rowsSinceRandPlatform)
@@ -497,26 +591,47 @@ shiftPlatformsDownIfNeeded:
 		syscall
 		add $t1, $zero, $a0
 		
-		bne $t1, 0, else_makePlatform				# If you generate a 0, make a platform
-		blt $t2, 6, else_makePlatform				# Never have platforms closer than 4 units apart
+		blt $t2, 5, else_makePlatform				# Never have platforms closer than 5 units apart
+		bgt $t1, 1, else_makePlatform				# If you generate a 0/1, make a platform
 		if_makePlatform:
+			# The location of the platform
 			li $v0, 42
 			li $a0, 0
 			li $a1, 19  # 31 -12
 			syscall
-		
 			addi $t4, $a0,1
-			sw  $t4, 0($t0)	
+			
+			# The type of platform
+			li $v0, 42
+			li $a0, 0
+			li $a1, 99
+			syscall
+			
+			# Apply the transformation from the uniformly distributed random number to the exponentially distributed one
+			mul $t5, $a0, 4
+			lw $t5, distribution+0($t5)
+			
+			
+			sb  $t4, 0($t0)	# Store the platform locatiom
+			sb  $t5, 1($t0)	# store the platform type
 		
-			addi $t2, $zero, 0			# Sets the rows since random platform generation to 0
+			#Since brown platforms can't be jumped on, set rowsSinceRandPlatform to a 5 so its possible to keep playing
+			bne $t5, 3, fi_brown
+			if_brown:
+				addi $t2, $zero, 2	
+				j fi_makePlatform
+			fi_brown:
+			
+			
+		
+			addi $t2, $zero, -1			# Sets the rows since random platform generation to 0
 			j fi_makePlatform
 		else_makePlatform:
-			sw  $zero, 0($t0)	
+			sw  $zero, 0($t0)			# Don't make a platform
 		
 		fi_makePlatform:
 		addi $t2, $t2, 1
 		sw $t2, rowsSinceRandPlatform
-		
 		
 		
 	fi_platforms_should_drop:
@@ -532,7 +647,9 @@ doodlerOnPlatform:																										# FIXME: You have hang off the right
 	addi $t1, $t1, 8 								# Standing on a platform, means we need to look 8 units under the Y to see if we are on it
 	mul $t3, $t1, 4									# Multiply by 4 (bytes) to get the correct mem address
 	add $t3, $t3, $t2
-	lw  $t3, ($t3)									# Store the value of platform array[i] in t3
+	lb  $t9, 1($t3)									# Stores the platform type stored in array[i] 	
+	lb  $t3, 0($t3)									# Store the value of platform array[i] byte 0 (The first byte is the platform position) in t3					#####!!!!!!!!!!!
+
 
 	bnez  $t3, if_possiblePlatformCollison 			# If the value is non-zero then it is the x-coord for a platform in row i
 	beqz  $t3, fi_collisionDetected 					# If the value is zero then there is no platform in this row
@@ -548,7 +665,8 @@ doodlerOnPlatform:																										# FIXME: You have hang off the right
 		bnez $t3, if_collisionDetected
 		beqz $t3 fi_collisionDetected
 		if_collisionDetected:
-			li $v0, 1			# You are on a platform
+			li  $v0, 1			# You are on a platform
+			add $v1, $zero, $t9	# Store the platform type in $v1
 			
 			j fi_possiblePlatformCollison
 		fi_collisionDetected:
@@ -668,7 +786,9 @@ drawPlatforms:
 		
 		mul $t2, $t0, 4					# 4i 
 		add $t2, $t2, $t1
-		lw  $t2, ($t2)					# $t2 is the value of platformPositions[i]
+		lb  $t3, 1($t2)					# The type of platform being used
+		lb  $t2, ($t2)					# $t2 is the value of platformPositions[i]
+
 		
 		bnez  $t2, if_rowHasPlatform 				# If the value is non-zero then it is the x-coord for a platform in row i
 		beqz  $t2, fi_rowHasPlatform 				# If the value is zero then there is no platform in this row
@@ -679,7 +799,15 @@ drawPlatforms:
 	 		sw   $t0, ($sp) 						# Stores i on the stack
 	 		sw   $t1, 4($sp)						# Stores platformPositions on the stack
 			
-			draw(2, PLATFORM_WIDTH, $t0,$t2,platformArray)		# draw platform 
+			
+			# Load the bitmap for the platform type being drawn into $t4
+			la $t4, platformArrays
+			mul $t3, $t3, 4
+			add $t4, $t4, $t3
+			lw $t4, ($t4)		# Loads the address into a register
+			la $t4, ($t4)		# Loads the conents of the address
+	
+			drawR(2, PLATFORM_WIDTH, $t0,$t2,$t4)
 
 			lw   $t0, ($sp) 
 			lw   $t1, 4($sp)						
@@ -716,4 +844,3 @@ copyFromDisplayBuffer:
 	exit_for_copy_display_buffer:
 	jr $ra
 ######################################################
-
