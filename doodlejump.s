@@ -99,7 +99,8 @@
 	hotTwoPlatformArray: .word 11,11,12,12,10,13,13,10,12,12,11,11
 						.word  5,11,11,12,12,10,10,12,12,11,11, 5
 	
-	platformArrays:      .word regularPlatformArray, springPlatformArray, movingPlatformArray, brokenPlatformArray, hotOnePlatformArray, hotTwoPlatformArray
+	# Array of the different platform arrays (Note movingPlatformArray is here twice for left = 2 and right = 6)
+	platformArrays:      .word regularPlatformArray, springPlatformArray, movingPlatformArray, brokenPlatformArray, hotOnePlatformArray, hotTwoPlatformArray, movingPlatformArray
 	
 	# The bitmap for the sky (An array of 32x32 zeros)		 		 
 	skyArray:     .space SCREEN_BYTE_AREA
@@ -168,7 +169,6 @@
 	doodlerY:              .word 0
 	hDirection:            .word 0
 	timeLeftInAir:         .word 6
-	jumpHeight:		      .word 6
 	rowsSinceRandPlatform: .word 0
 	
 	
@@ -279,12 +279,10 @@
 				
 				if_regJump:	# Jump 6 units high on a regular jump
 					addi $t1, $zero, 6
-					sw   $t1, jumpHeight
 					sw   $t1, timeLeftInAir
 					j fi_jumps
 				else_springJump:	# Jump 15 units high when on a spring
 					addi $t1, $zero, 15
-					sw   $t1, jumpHeight
 					sw   $t1, timeLeftInAir
 					j fi_jumps
 				else_brokenJump:	# Keep falling if you land on a broken plaform and break the platform
@@ -302,7 +300,6 @@
 					j fi_jumps
 				else_hotOneJump: # Jump normally but set the platform to kill the player on the next landing
 					addi $t1, $zero, 6
-					sw   $t1, jumpHeight
 					sw   $t1, timeLeftInAir
 				
 					lw   $t2, doodlerY
@@ -360,6 +357,7 @@
 		# Update location of platforms and other objects
 		jal shiftPlatformsDownIfNeeded
 		
+		jal movePlatformsHorizontally
 		
 		# Redraw the screen
 			# Draw the blue background 
@@ -410,7 +408,7 @@
 			
 		# Sleep
 		li $v0, 32
-		li $a0, 3 # 1/3 second sleep
+		li $a0, 3 # ~30 fps
 		syscall
 		
 		j mainLoop
@@ -469,7 +467,6 @@ setGameStateToOne:
 	addi $t0, $zero, 6
 	sw $t0, doodlerX				# doodlerX = 6
 	sw $t0, timeLeftInAir			# timeLeftInAir =6
-	sw $t0, jumpHeight			# jumpHeight = 6
 	
 	addi $t0, $zero, 50
 	sw $t0, doodlerY 			# doodlerY = 50
@@ -572,16 +569,13 @@ shiftPlatformsDownIfNeeded:
 		exit_platform_shift:
 		
 		# Randomly generate platforms
-		lw $t1 jumpHeight
 		lw $t2 rowsSinceRandPlatform
 		
 		
-		# E(rowsSinceRandPlatform) = -rowsSinceRandPlatform + (jumpHeight + 1)			This equation will be used to calculate the end random value for the chances to make a platform
+		# E(rowsSinceRandPlatform) = -rowsSinceRandPlatform + (regJumpHeight + 1)			This equation will be used to calculate the end random value for the chances to make a platform
 		
-		mul  $t5, $t2, -1						# $t5 = -rowsSinceRandPlatform
-####		addi $t1, $t1, 1							# $t1 = (jumpHeight + 1), note jumpHeight=6 for now
-# TEMP::::
-		addi $t1, $zero, 7			
+		mul  $t5, $t2, -1						# $t5 = -rowsSinceRandPlatform	
+		addi $t1, $zero, 7						# $t1 = (regJumpHeight + 1)
 		
 		add $t1, $t1, $t5						# t1 = E(rowsSinceRandPlatform)
 		
@@ -622,8 +616,6 @@ shiftPlatformsDownIfNeeded:
 				j fi_makePlatform
 			fi_brown:
 			
-			
-		
 			addi $t2, $zero, -1			# Sets the rows since random platform generation to 0
 			j fi_makePlatform
 		else_makePlatform:
@@ -636,8 +628,46 @@ shiftPlatformsDownIfNeeded:
 		
 	fi_platforms_should_drop:
 	jr $ra
+#######################################################
+movePlatformsHorizontally:
+	add $t1, $zero, $zero
+	for_platform_in_row:
+		lb $t2, platformPositions+0($t1)		# Load the position of the platfrom (if there exits one)
+		lb $t3, platformPositions+1($t1)		# Loads the platform type
+		
+		bne, $t3, 2, else_moving_platform_R
+		if_moving_platform_L:
+			# Move platfrom left by one, and if we hit the boundary switch its direction to right (6)
+			addi $t2, $t2, -1
+			
+			bne $t2, 0, fi_left_side_reached
+			if_left_side_reached:
+				addi $t2, $zero, 1
+				addi $t3, $zero, 6
+			fi_left_side_reached:
+			j fi_moving_platform
+		else_moving_platform_R:
+		bne, $t3, 6, fi_moving_platform
+			# Move platfrom right by one, and if we hit the boundary switch its direction to right (6)
+			addi $t2, $t2, 1
 
+			bne $t2, 20, fi_right_side_reached
+			if_right_side_reached:
+				addi $t2, $zero, 21
+				addi $t3, $zero, 2
+			fi_right_side_reached:
+		fi_moving_platform:
+		# Store the updated values
+		sb $t2, platformPositions+0($t1)
+		sb $t3, platformPositions+1($t1)
 
+		
+		
+		addi $t1, $t1, 4
+		beq $t1, 256, exit_platform_in_row
+		j for_platform_in_row
+	exit_platform_in_row:
+		jr $ra
 #######################################################
 doodlerOnPlatform:																										# FIXME: You have hang off the right edge by the nose
 	lw $t0, doodlerX
