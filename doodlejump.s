@@ -20,8 +20,9 @@
 # (See the assignment handout for the list of additional features)
 # 1. 4a - Score/scoreboard
 # 2. 4b - Game Over / retry
-# 3. 5d - Fancier graphics
-#
+# 3. 5d - Fancier graphics (I'm not sure if they're fancy enough rn)
+# 4. 5b - More Platform Types: Regular (green), Broken (Brown - break on landing), Moving (Blue), HotOne (Yellow - When landed on are primed), HotTwo (Fire - Kill the player when landed on)
+# 5. 5c - Springs (The grey Ts on platforms). Rockets are still being implemented
 # Any additional information that the TA needs to know:
 # - The code requires a little endian architecture, spesifically lines ___________________
 #
@@ -35,7 +36,7 @@
 	.eqv SCREEN_BYTE_AREA_WITH_BUFFER    8320 	# Add an extra row on the bottom as a buffer (If we draw a platfrom on the very bottom row) 
 
 	# Defining some colors to be used and their pallate
-	.eqv LBLUE         0x11bffe 
+	.eqv LBLUE        0x11bffe 
 	.eqv YELLOW       0xdad830
 	.eqv BLACK        0x000000
 	.eqv DGREEN       0x0c8f50
@@ -171,12 +172,21 @@
 	timeLeftInAir:         .word 6
 	rowsSinceRandPlatform: .word 0
 	
-	
 
 	# Every value > 1 is the x coord -1 if the platform, 0 means there is no platform
 	initialPlatformPositions: .word  0,0,0,0,10,0,0,0,0,0,0,0,0,0,2,0,0,0,21,0,0,0,0,7,0,0,0,0,14,0,0,0,0,0,0,2,0,0,0,0,0,0,18,0,0,0,2,0,0,0,11,0,0,0,0,0,0,3,0,0,0,0,1,0
 	startMenuPlatformPosition: .word 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,10,0,0	
 	platformPositions:		 .space 256
+	
+	# Data for the background music
+	# The notes to be played
+	notesR: .word   65, 69, 71, 0, 65, 69, 71, 0, 65, 69, 71, 76, 74, 71, 72, 71, 67, 64, 0, 0, 0, 62, 64, 67, 64, 0, 0, 0, 65, 69, 71, 0, 65, 69, 71, 0, 65, 69, 71, 76, 74, 71, 72, 76, 71, 67, 0, 71, 67, 62, 64, 0, 0, 0, 62, 64, 65, 0, 67, 69, 71, 0, 72, 71, 64, 0, 0, 65, 67, 69, 0, 71, 69, 71, 0, 72, 74, 76, 0, 0, 0, 0, 0, 0, 62, 64, 65, 0, 67, 69, 71, 72, 71, 64, 0, 0, 0, 0, 0, 0, 65, 64, 69, 67, 71, 0, 69, 69, 71, 74, 72, 72, 74, 74, 72, 76, 72, 74, 76, 0, 0, 0, 76,-1
+	notesL: .word   0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 62, 64, 65, 0, 67, 72, 74, 0, 76, 77, 79, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 62, 60, 65, 64, 67, 0, 65, 72, 67, 71, 69, 76, 71, 77, 76, 71, 77, 69, 71, 0, 0, 0, 83
+	.eqv noteLen    300  # The length of time a note is played
+	.eqv instrument 17   #Organ
+	currentNote: .word 0 # The note index in the arrays to be played
+	noteDelay:   .word 0 # The count of loop cycles between notes
+	
 .text
 	# Draw a label bitmap to the screen
 	.macro draw (%x_size, %y_size, %x_pos, %y_pos, %bitmap)
@@ -405,7 +415,11 @@
 			
 			# Draw the bitmap display from the buffer
 			jal copyFromDisplayBuffer
-			
+		
+		# Play a note of music
+		jal playNote
+		
+		
 		# Sleep
 		li $v0, 32
 		li $a0, 3 # ~30 fps
@@ -417,6 +431,65 @@
 		# End the program
 		li $v0, 10
 		syscall 
+#######################################################
+playNote:
+	lw $t9, noteDelay
+	bne $t9, 2, exit_play_note		# Only play a note once every _ main loop cycles
+	add $t9, $zero, $zero			# Reset the noteDelay count to zero since a note is being played
+	
+
+	lw $t0, currentNote
+	lw $t1, notesR($t0)
+	lw $t2, notesL($t0)
+	
+	# Loop back to start of song if end (-1) is reached
+	bne $t1, -1, fi_restart
+	if_restart:
+		addi $t0, $zero, 0
+		lw $t1, notesR
+		lw $t2, notesL
+	fi_restart:
+
+	# Either play a note or pause
+	beqz $t1, else_pause
+	if_pause:
+		# Only play left if there is a note
+		beqz $t2, fi_left
+		if_left:
+			li $v0,31
+    			add $a0, $zero, $t2    	 	# Pitch
+    			addi $a1, $zero, noteLen      # Duration (millis)
+   	 		addi $a2, $zero,instrument    # Instrument
+    			addi $a3, $zero, 34           # Volume
+			syscall
+		fi_left:
+		
+		# Right hand (There is never a right hand if left is pausing)
+    		li $v0,31
+    		add $a0, $zero, $t1     		# Pitch
+    		addi $a1, $zero, noteLen      # Duration (millis)
+   	 	addi $a2, $zero, instrument   # Instrument
+    		addi $a3, $zero, 34           # Volume
+		syscall
+		
+		j fi_pause
+	else_pause:
+		# take a pause for note length
+		li $v0, 32
+		addi $a0, $zero, noteLen
+		#syscall
+	
+	fi_pause:
+
+	addi $t0, $t0, 4
+	sw $t0, currentNote
+
+	exit_play_note:
+
+	addi, $t9, $t9, 1		# Increment noteDelay
+	sw $t9, noteDelay
+
+	jr $ra
 #######################################################
 setGameStateToZero:	
 	addi $t0, $zero, 0
@@ -575,7 +648,7 @@ shiftPlatformsDownIfNeeded:
 		# E(rowsSinceRandPlatform) = -rowsSinceRandPlatform + (regJumpHeight + 1)			This equation will be used to calculate the end random value for the chances to make a platform
 		
 		mul  $t5, $t2, -1						# $t5 = -rowsSinceRandPlatform	
-		addi $t1, $zero, 7						# $t1 = (regJumpHeight + 1)
+		addi $t1, $zero, 6						# $t1 = (regJumpHeight + 1)
 		
 		add $t1, $t1, $t5						# t1 = E(rowsSinceRandPlatform)
 		
