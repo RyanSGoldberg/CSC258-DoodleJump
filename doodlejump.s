@@ -100,8 +100,8 @@
 	hotTwoPlatformArray: .word 11,11,12,12,10,13,13,10,12,12,11,11
 						.word  5,11,11,12,12,10,10,12,12,11,11, 5
 	
-	# Array of the different platform arrays (Note movingPlatformArray is here twice for left = 2 and right = 6)
-	platformArrays:      .word regularPlatformArray, springPlatformArray, movingPlatformArray, brokenPlatformArray, hotOnePlatformArray, hotTwoPlatformArray, movingPlatformArray
+	# Array of the different platform arrays (Note movingPlatformArray is here twice for left = 2 and right = 3)
+	platformArrays:      .word regularPlatformArray, springPlatformArray, movingPlatformArray, movingPlatformArray, hotOnePlatformArray, hotTwoPlatformArray, brokenPlatformArray
 	
 	# The bitmap for the sky (An array of 32x32 zeros)		 		 
 	skyArray:     .space SCREEN_BYTE_AREA
@@ -153,8 +153,8 @@
     nineArray:  .word 2,2,2, 2,5,2, 2,2,2, 5,5,2, 5,5,2
     numArray:   .word zeroArray,oneArray,twoArray,threeArray,fourArray,fiveArray,sixArray,sevenArray,eightArray,nineArray
     
-    #Exponential distributed numbers between 0 and 4 ([int(5.0*e**(-1.0*x/20.0)) for x in range(100)])
-    distribution: .word 4, 4, 4, 4, 4, 4, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
+    #Distrribution for how often the different platform types are created
+    distribution: .word 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
     
 	# Strings
 	newLine:      .asciiz "\n"
@@ -283,7 +283,7 @@
 			beqz $t9, else_on_platform	# You are either still jumping or you don't hit a platform, so don't just again
 			if_on_platform:
 				beq $t8, 1, else_springJump		# If you're on a spring platform do a special jump
-				beq $t8, 3, else_brokenJump		# If you're on a broken platform do fall and break the platform
+				beq $t8, 6, else_brokenJump		# If you're on a broken platform do fall and break the platform
 				beq $t8, 4, else_hotOneJump		# If you're on a hotOne platform prime the platform for next time
 				beq $t8, 5, else_hotTwoJump		# If you're on a hotTwo platform end the game since its 'hot'
 				
@@ -683,7 +683,7 @@ shiftPlatformsDownIfNeeded:
 			sb  $t5, 1($t0)	# store the platform type
 		
 			#Since brown platforms can't be jumped on, set rowsSinceRandPlatform to a 5 so its possible to keep playing
-			bne $t5, 3, fi_brown
+			bne $t5, 6, fi_brown
 			if_brown:
 				addi $t2, $zero, 2	
 				j fi_makePlatform
@@ -716,11 +716,11 @@ movePlatformsHorizontally:
 			bne $t2, 0, fi_left_side_reached
 			if_left_side_reached:
 				addi $t2, $zero, 1
-				addi $t3, $zero, 6
+				addi $t3, $zero, 3
 			fi_left_side_reached:
 			j fi_moving_platform
 		else_moving_platform_R:
-		bne, $t3, 6, fi_moving_platform
+		bne, $t3, 3, fi_moving_platform
 			# Move platfrom right by one, and if we hit the boundary switch its direction to right (6)
 			addi $t2, $t2, 1
 
