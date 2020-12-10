@@ -18,16 +18,19 @@
 #
 # Which approved additional features have been implemented?
 # (See the assignment handout for the list of additional features)
-# 1. 4a - Score/scoreboard
+# 1. 4a - Score/scoreboard (1 point for every platform jumped on)
 # 2. 4b - Game Over / retry
-# 3. 5d - Fancier graphics (I'm not sure if they're fancy enough rn)
-# 4. 5b - More Platform Types: Regular (green), Broken (Brown - break on landing), Moving (Blue), HotOne (Yellow - When landed on are primed), HotTwo (Fire - Kill the player when landed on)
-# 5. 5c - Springs (The grey Ts on platforms). Rockets are still being implemented
+# 3. 5d - Fancier graphics (Doodler and platforms have somewhat fancy look, the shield has an animation with it so that it looks like it is moving)
+# 4. 5b - More Platform Types: Regular (green), Fragile (Brown - break on landing), Moving (Blue), HotOne (Yellow - When landed on are primed), HotTwo (Fire - Kill the player when landed on)
+# 5. 5c - Boosting: Springs (The grey Ts on platforms), Rockets (The little blue jetpack shape above some platforms). The jetpack adds an image to the doodler so it has a jetpack when 'flying' 
 # 6. 5f - Background Music is played (Lost Woods from Zelda), and jump sound effect when the doodler jumps on anything
-# 7. 5i - Oponents will randomly spawn. The play will begin falling if they collide from below. If they jump on the monster it will be killed , adn the player gets a jump boost
+# 7. 5i - Oponents will randomly spawn. The play will begin falling if they collide from below. If they jump on the monster it will be killed , and the player gets a jump boost
+# 8, 5j - Shields: When the doodler has an active shield it can jump through a monster and won't get knocked down. This is use up the shield. Note the shield only protects from above so hotTwo 
+#					platfroms will still kill the played.
 # Any additional information that the TA needs to know:
-# - The code requires a little endian architecture, spesifically lines ___________________
-#
+# * The code requires a little endian architecture
+# * The code uses some pseudo-instructions, so the pseudo-instruction setting must be enabled on mars
+# * To end the game click "c", this will stop the main loop
 #####################################################################
 .data
 	# Defining constants
@@ -53,9 +56,7 @@
 	.eqv ORANGE		 0xff7900
 	.eqv WHITE		 0xffffff
 	
-
 	colors: .word LBLUE, YELLOW, BLACK, DGREEN, LGREEN, TRANSPARENT, GREYBLUE, GREY, DBLUE, BROWN, BYELLOW, RED, ORANGE, WHITE
-
 
 	# The start address for the bitmap display
 	displayAddress: .word  0x10008000
@@ -118,7 +119,7 @@
 					.word 5,5,5,5,5,5,5,5,5,5,11,11
 	rocketArrays: 	.word rocketArrayR, rocketArrayL
 						 	 
-	# The bitmap for a platform
+	# The bitmaps for the platforms / monsters / items
 	regularPlatformArray: .word 4,4,4,4,4,4,4,4,4,4,4,4
 				         .word 5,5,4,4,4,4,4,4,4,4,5,5
 				 
@@ -156,12 +157,10 @@
 						.word 5,5,5,5,5,5,5,5,5,5,5,5
 						.word 4,4,4,4,4,4,4,4,4,4,4,4
 				        .word 5,5,4,4,4,4,4,4,4,4,5,5
-				
 										
 	# Array of the different platform arrays (Note movingPlatformArray is here twice for left = 2 and right = 3, likewise MonsterPlatformArray is 7/8)
 	platformArrays:      .word regularPlatformArray, springPlatformArray, movingPlatformArray, movingPlatformArray, hotOnePlatformArray, hotTwoPlatformArray,
 						.word brokenPlatformArray, monsterPlatformArray, monsterPlatformArray, rocketPlatformArray, shieldPlatformArray
-	
 	
 	# The bitmap for the sky (An array of 32x32 zeros)		 		 
 	skyArray:     .space SCREEN_BYTE_AREA
@@ -186,7 +185,7 @@
                   .word 5,5,2,5,5,5,2,5,5,2,5,5,5,2,5,2,5,5,5,5,5,2,2,5,5
                   .word 5,5,2,5,5,5,2,5,5,5,2,5,2,5,5,2,5,5,5,5,5,2,5,2,5
                   .word 5,5,5,2,2,2,5,5,5,5,5,2,5,5,5,5,2,2,2,5,5,2,5,5,2
-                  
+     # the bitmap for "Click S to start"        
      clickSArray: .word 5,2,2,2,5,2,5,5,5,2,5,2,2,2,5,2,5,2,5,5,5,5,2,2,2,5,5
  				 .word 5,2,5,5,5,2,5,5,5,2,5,2,5,5,5,2,5,2,5,5,5,5,2,5,5,5,5
  				 .word 5,2,5,5,5,2,5,5,5,2,5,2,5,5,5,2,2,5,5,5,5,5,2,2,2,5,5
@@ -224,13 +223,13 @@
 	gamesPlayed:           .word -1
 	score:                 .word 0
 	
-	doodlerX:              .word 0
-	doodlerY:              .word 0
-	hDirection:            .word 0
-	timeLeftInAir:         .word 6
-	rowsSinceRandPlatform: .word 0
-	shield:				  .word -1
-	rocket:				  .word -1
+	doodlerX:              .word 0			# The doodlers x pos
+	doodlerY:              .word 0			# The doodler's y pos
+	hDirection:            .word 0			# The direction the doodler is facing
+	timeLeftInAir:         .word 6			# How many cycles the doodler has left in the air
+	rowsSinceRandPlatform: .word 0			# The number of rows since a random platform was created
+	shield:				  .word -1			# If there is an active shield
+	rocket:				  .word -1			# If there is an active rocket pack
 	
 
 	# Every value > 1 is the x coord -1 if the platform, 0 means there is no platform
@@ -284,12 +283,12 @@
 			if_keyboard_input:
 				lw $t2, 0xffff0004		   # Load the keyboard input into $t2
 				
-				# If statments for differnt letter inputs
+				# If statments for different letter inputs
 				beq $t2, 0x6A, respond_to_J 	
 				beq $t2, 0x6B, respond_to_K
 				beq $t2, 0x73, respond_to_S
 				beq $t2, 0x63, respond_to_C
-				j fi_keyboard_input		   # If they input is none of the accepted characters exit the if statement
+				j fi_keyboard_input		   # If their input is none of the accepted characters exit the if statement
 				
 				respond_to_J:
 					# doodlerX--, and wrap around if x < 0
@@ -325,10 +324,8 @@
 					j fi_keyboard_input      # Exit if statement
 				respond_to_C:
 					j  exitLoop
-			
 			fi_keyboard_input:
 		
-
 			# Check for doodler colisions (with platform)	
 			jal doodlerOnPlatform
 			add $t9, $zero, $v0			# 0 if you are not on a platform, 1 if you are
@@ -340,7 +337,6 @@
 			and $t9, $t9, $t2 		 	# You are falling and you hit a platform
 			
 			# Handle platform colissions
-			
 			beqz $t9, else_on_platform	# You are either still jumping or you don't hit a platform, so don't just again
 			if_on_platform:
 				beq $t8, 1, else_springJump		# If you're on a spring platform do a special jump
@@ -352,12 +348,11 @@
 				beq $t8, 9, else_rocket			# If you land on a rocket, activate the ability and remove the item
 				beq $t8, 10,else_shield			# If you land on a shield, activate the ability and remove the item
 				
-				
 				if_regJump:	# Jump 6 units high on a regular jump
 					addi $t1, $zero, 6
 					sw   $t1, timeLeftInAir
 					j fi_jumps
-				else_springJump:	# Jump 15 units high when on a spring
+				else_springJump:	# Jump 10 units high when on a spring
 					addi $t1, $zero, 10
 					sw   $t1, timeLeftInAir
 					j fi_jumps
@@ -400,7 +395,7 @@
 					
 					j fi_jumps
 				 else_rocket:
-				 	addi $t1, $zero, 15		# Rocket Jump
+				 	addi $t1, $zero, 15				# Rocket Jump (15 units)
 					sw   $t1, timeLeftInAir
 				
 					sw $zero, rocket				  # Activate the rocket drawing
@@ -426,7 +421,7 @@
 					addi $t9, $zero, 5
 					sb $zero, 1($t2)					# make the platform a regular
 				fi_jumps:
-# FIXME: SCORE AND SOUND				
+				
 				# Increment the score by 1
 				lw $t1, score
 				addi $t1, $t1, 1
@@ -457,8 +452,6 @@
 			
 			# Updates the doodler if he hit a monster from the bottom i.e gets knocked down
 			jal doodlerHitMonsterFromBelow
-			
-			
 			
 			# Checks if the doodler has fit the bottom row and the game is over
 			jal isGameOver
@@ -558,7 +551,7 @@
 			
 			
 			# Draw the rocket pack, if it is active
-			lw $t8, rocket			# 0 or 4 mean the sheild is up, -1 means it is not
+			lw $t8, rocket			# 0 or 4 means the sheild is up, -1 means it is not
 			bltz $t8, fi_rocket
 			if_rocket:
 				lw $t1, doodlerY			# Loads in the doodlers current position
@@ -595,7 +588,7 @@
 #######################################################
 playNote:
 	lw $t9, noteDelay
-	bne $t9, 2, exit_play_note		# Only play a note once every _ main loop cycles
+	bne $t9, 2, exit_play_note		# Only play a note once every 2 main loop cycles
 	add $t9, $zero, $zero			# Reset the noteDelay count to zero since a note is being played
 	
 
@@ -854,7 +847,7 @@ shiftPlatformsDownIfNeeded:
 		lw $t2 rowsSinceRandPlatform
 		
 		
-		# E(rowsSinceRandPlatform) = -rowsSinceRandPlatform + (regJumpHeight + 1)			This equation will be used to calculate the end random value for the chances to make a platform
+		# E(rowsSinceRandPlatform) = -rowsSinceRandPlatform + (regJumpHeight + 1)	This equation will be used to calculate the end random value for the chances to make a platform
 		
 		mul  $t5, $t2, -1						# $t5 = -rowsSinceRandPlatform	
 		addi $t1, $zero, 6						# $t1 = (regJumpHeight + 1)
@@ -891,7 +884,7 @@ shiftPlatformsDownIfNeeded:
 			sb  $t4, 0($t0)	# Store the platform locatiom
 			sb  $t5, 1($t0)	# store the platform type
 		
-			#Since brown platforms can't be jumped on, set rowsSinceRandPlatform to a 5 so its possible to keep playing
+			#Since brown platforms can't be jumped on, set rowsSinceRandPlatform to a 2 so its possible to keep playing
 			bne $t5, 6, fi_brown
 			if_brown:
 				addi $t2, $zero, 2	
@@ -946,15 +939,13 @@ movePlatformsHorizontally:
 		sb $t2, platformPositions+0($t1)
 		sb $t3, platformPositions+1($t1)
 
-		
-		
 		addi $t1, $t1, 4
 		beq $t1, 256, exit_platform_in_row
 		j for_platform_in_row
 	exit_platform_in_row:
 		jr $ra
 #######################################################
-doodlerOnPlatform:																										# FIXME: You have hang off the right edge by the nose
+doodlerOnPlatform:																										
 	lw $t0, doodlerX
 	lw $t1, doodlerY
 	la $t2, platformPositions
@@ -963,7 +954,7 @@ doodlerOnPlatform:																										# FIXME: You have hang off the right
 	mul $t3, $t1, 4									# Multiply by 4 (bytes) to get the correct mem address
 	add $t3, $t3, $t2
 	lb  $t9, 1($t3)									# Stores the platform type stored in array[i] 	
-	lb  $t3, 0($t3)									# Store the value of platform array[i] byte 0 (The first byte is the platform position) in t3					#####!!!!!!!!!!!
+	lb  $t3, 0($t3)									# Store the value of platform array[i] byte 0 (The first byte is the platform position) in t3	
 
 
 	bnez  $t3, if_possiblePlatformCollison 			# If the value is non-zero then it is the x-coord for a platform in row i
@@ -990,8 +981,6 @@ doodlerOnPlatform:																										# FIXME: You have hang off the right
 		fi_possiblePlatformCollison:
 		
 		jr $ra
-	
-
 #######################################################
 # Draws a bitmap of size x-size by y-size in position (X,Y) on the bitmap display unit	
 drawBitMap:
@@ -1032,7 +1021,6 @@ drawBitMap:
 	    	    jal  setColor           # Put the color to drwa in $v0	
 	    		move $s1, $v0	
 	    																												
-	    		
 	    		bltz $s1, fi_not_transparent	# Only draw if the color value > 0 (-1 == Transparent)
 	    		if_not_transparent:																																																			# if transparent, don't draw anything
 	    			sw   $s1 ($s0)          # Draw color in $s1 at position $s0	
@@ -1047,7 +1035,6 @@ drawBitMap:
 	       	
 	    		addi $t7, $t7, 1        # j++
 	    		j forJ
-	    #j forI REMOVE ME
 
 		exitForJ:
 			add  $t7, $zero, $t5    # j = X
@@ -1067,7 +1054,6 @@ drawBitMap:
 	
 	   sub $t6, $t6, $t4        # Remove the x offset from i
 	   sub $t7, $t7, $t5        # Remove the y offset from j
-	
 	
 	   # Find the correct address in the bitmap to get the color
 	   mul $t9, $t9, 4         # s3 = 4* size
@@ -1104,9 +1090,7 @@ drawPlatforms:
 		lb  $t3, 1($t2)					# The type of platform being used
 		add $s0, $t3, $zero				# A copy of the paltofrm type
 		lb  $t2, ($t2)					# $t2 is the value of platformPositions[i]
-		
 
-		
 		bnez  $t2, if_rowHasPlatform 				# If the value is non-zero then it is the x-coord for a platform in row i
 		beqz  $t2, fi_rowHasPlatform 				# If the value is zero then there is no platform in this row
 		if_rowHasPlatform:
