@@ -25,8 +25,10 @@
 # 5. 5c - Boosting: Springs (The grey Ts on platforms), Rockets (The little blue jetpack shape above some platforms). The jetpack adds an image to the doodler so it has a jetpack when 'flying' 
 # 6. 5f - Background Music is played (Lost Woods from Zelda), and jump sound effect when the doodler jumps on anything
 # 7. 5i - Oponents will randomly spawn. The play will begin falling if they collide from below. If they jump on the monster it will be killed , and the player gets a jump boost
-# 8, 5j - Shields: When the doodler has an active shield it can jump through a monster and won't get knocked down. This is use up the shield. Note the shield only protects from above so hotTwo 
+# 8. 5j - Shields: When the doodler has an active shield it can jump through a monster and won't get knocked down. This is use up the shield. Note the shield only protects from above so hotTwo 
 #					platfroms will still kill the played.
+# 9. 4d - Dynamic changes to the platform types/boosts/items depending on the current score. The first few platforms are close to one another and are regular type (Green).
+#					The medium distribution is mostly regular platforms with a few moving platforms and springs. The Hard distribution has all the platfroms/boosts/items. Hard occurs when score >= 20
 # Any additional information that the TA needs to know:
 # * The code requires a little endian architecture
 # * The code uses some pseudo-instructions, so the pseudo-instruction setting must be enabled on mars
@@ -213,7 +215,11 @@
     numArray:   .word zeroArray,oneArray,twoArray,threeArray,fourArray,fiveArray,sixArray,sevenArray,eightArray,nineArray
     
     #Distrribution for how often the different platform types are created (0 = Reg, 1 = Spring, 2 = Move L, 3 = Move R, , 4 =HotOne, 6 = Broken, 7 = Moster L, 8 = Monster R, 9 = Rocket, 10 = Shield)
-    distribution: .word 7, 7, 7, 8, 8, 8, 4, 4, 4, 4, 4, 4, 4, 6, 6, 6, 6, 6, 6, 6, 10, 10, 10, 3, 3, 3, 3, 3, 3, 3, 2, 2, 2, 2, 2, 2, 9, 9, 9, 9, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
+    # There are different distributions depending ont the score (Easy = All green, Med  = Green with a few blue/spring, Hard = Everything)
+    distributionH: .word 7, 7, 7, 8, 8, 8, 4, 4, 4, 4, 4, 4, 4, 6, 6, 6, 6, 6, 6, 6, 10, 10, 10, 3, 3, 3, 3, 3, 3, 3, 2, 2, 2, 2, 2, 2, 9, 9, 9, 9, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
+    distributionM: .word 0:80
+    				  .word 1:10
+    				  .word 2:10
     
 	# Strings
 	newLine:      .asciiz "\n"
@@ -876,11 +882,20 @@ shiftPlatformsDownIfNeeded:
 			li $a1, 99
 			syscall
 			
-			# Apply the transformation from the uniformly distributed random number to the exponentially distributed one
+			# Apply the transformation from the uniformly distributed random number to the exponentially distributed one (A different distribution depending on the score)
 			mul $t5, $a0, 4
-			lw $t5, distribution+0($t5)
 			
-			
+			# Uses a differnt distribution, depending on the current score.
+			lw $t9, score
+			bgt $t9, 19, else_low_score
+			if_low_score:
+				lw $t5, distributionM+0($t5)
+				j fi_low_score
+			else_low_score:
+				lw $t5, distributionH+0($t5)
+				j fi_low_score
+			fi_low_score:
+				
 			sb  $t4, 0($t0)	# Store the platform locatiom
 			sb  $t5, 1($t0)	# store the platform type
 		
