@@ -23,6 +23,8 @@
 # 3. 5d - Fancier graphics (I'm not sure if they're fancy enough rn)
 # 4. 5b - More Platform Types: Regular (green), Broken (Brown - break on landing), Moving (Blue), HotOne (Yellow - When landed on are primed), HotTwo (Fire - Kill the player when landed on)
 # 5. 5c - Springs (The grey Ts on platforms). Rockets are still being implemented
+# 6. 5f - Background Music is played (Lost Woods from Zelda), and jump sound effect when the doodler jumps on anything
+# 7. 5i - Oponents will randomly spawn. The play will begin falling if they collide from below. If they jump on the monster it will be killed , adn the player gets a jump boost
 # Any additional information that the TA needs to know:
 # - The code requires a little endian architecture, spesifically lines ___________________
 #
@@ -79,7 +81,43 @@
 				 .word 5,5,1,1,1,1,1,1
 				 .word 5,5,5,2,5,5,5,2
 				 .word 5,5,2,2,5,5,2,2
-				 
+	
+	# Bitmaps for the sheild and the rocketpack			 
+	shieldArrayA: 	.word 5,13,8,13,8,13,8,13,8,5
+				 	.word 13,5,5,5,5,5,5,5,5,8
+				 	.word 8,5,5,5,5,5,5,5,5,13
+					.word 13,5,5,5,5,5,5,5,5,8
+			 		.word 8,5,5,5,5,5,5,5,5,13
+				 	.word 13,5,5,5,5,5,5,5,5,8
+				 	.word 8,5,5,5,5,5,5,5,5,13
+				 	.word 13,5,5,5,5,5,5,5,5,8
+				 	.word 8,5,5,5,5,5,5,5,5,13
+	shieldArrayB: 	.word 5,8,13,8,13,8,13,8,13,5
+			 		.word 8,5,5,5,5,5,5,5,5,13
+			 		.word 13,5,5,5,5,5,5,5,5,8
+			 		.word 8,5,5,5,5,5,5,5,5,13
+			 		.word 13,5,5,5,5,5,5,5,5,8
+			 		.word 8,5,5,5,5,5,5,5,5,13
+			 		.word 13,5,5,5,5,5,5,5,5,8
+			 		.word 8,5,5,5,5,5,5,5,5,13
+			 		.word 13,5,5,5,5,5,5,5,5,8
+	shieldArrays: 	.word shieldArrayA, shieldArrayB
+	
+	rocketArrayL:	.word 5,8,5,5,5,5,5,5,5,5,5,5
+					.word 8,8,5,5,5,5,5,5,5,5,5,5
+					.word 8,8,8,5,5,5,5,5,5,5,5,5
+					.word 8,8,5,5,5,5,5,5,5,5,5,5
+					.word 8,8,5,5,5,5,5,5,5,5,5,5
+					.word 11,11,5,5,5,5,5,5,5,5,5,5
+					
+	rocketArrayR:    .word 5,5,5,5,5,5,5,5,5,5,8,5
+					.word 5,5,5,5,5,5,5,5,5,5,8,8
+					.word 5,5,5,5,5,5,5,5,5,8,8,8
+					.word 5,5,5,5,5,5,5,5,5,5,8,8
+					.word 5,5,5,5,5,5,5,5,5,5,8,8
+					.word 5,5,5,5,5,5,5,5,5,5,11,11
+	rocketArrays: 	.word rocketArrayR, rocketArrayL
+						 	 
 	# The bitmap for a platform
 	regularPlatformArray: .word 4,4,4,4,4,4,4,4,4,4,4,4
 				         .word 5,5,4,4,4,4,4,4,4,4,5,5
@@ -99,9 +137,31 @@
 	
 	hotTwoPlatformArray: .word 11,11,12,12,10,13,13,10,12,12,11,11
 						.word  5,11,11,12,12,10,10,12,12,11,11, 5
+						
+	monsterPlatformArray:.word 2, 2, 7, 7, 11,7, 7, 11, 7, 7, 2, 2
+						.word 2, 5, 7, 7, 7, 13, 13, 7, 7, 7, 5, 2
+						
+	rocketPlatformArray: .word 5,5,5,5,5,8,5,5,5,5,5,5	
+						.word 5,5,5,5,8,8,8,5,5,5,5,5
+						.word 5,5,5,5,8,8,8,5,5,5,5,5
+						.word 5,5,5,5,11,5,11,5,5,5,5,5
+						.word 5,5,5,5,5,5,5,5,5,5,5,5
+						.word 4,4,4,4,4,4,4,4,4,4,4,4
+				        .word 5,5,4,4,4,4,4,4,4,4,5,5
+				        
+	shieldPlatformArray: .word 5,5,5,5,8,13,8,5,5,5,5,5	
+						.word 5,5,5,5,13,8,13,5,5,5,5,5
+						.word 5,5,5,5,8,13,8,5,5,5,5,5
+						.word 5,5,5,5,5,8,5,5,5,5,5,5
+						.word 5,5,5,5,5,5,5,5,5,5,5,5
+						.word 4,4,4,4,4,4,4,4,4,4,4,4
+				        .word 5,5,4,4,4,4,4,4,4,4,5,5
+				
+										
+	# Array of the different platform arrays (Note movingPlatformArray is here twice for left = 2 and right = 3, likewise MonsterPlatformArray is 7/8)
+	platformArrays:      .word regularPlatformArray, springPlatformArray, movingPlatformArray, movingPlatformArray, hotOnePlatformArray, hotTwoPlatformArray,
+						.word brokenPlatformArray, monsterPlatformArray, monsterPlatformArray, rocketPlatformArray, shieldPlatformArray
 	
-	# Array of the different platform arrays (Note movingPlatformArray is here twice for left = 2 and right = 3)
-	platformArrays:      .word regularPlatformArray, springPlatformArray, movingPlatformArray, movingPlatformArray, hotOnePlatformArray, hotTwoPlatformArray, brokenPlatformArray
 	
 	# The bitmap for the sky (An array of 32x32 zeros)		 		 
 	skyArray:     .space SCREEN_BYTE_AREA
@@ -153,24 +213,24 @@
     nineArray:  .word 2,2,2, 2,5,2, 2,2,2, 5,5,2, 5,5,2
     numArray:   .word zeroArray,oneArray,twoArray,threeArray,fourArray,fiveArray,sixArray,sevenArray,eightArray,nineArray
     
-    #Distrribution for how often the different platform types are created
-    distribution: .word 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
+    #Distrribution for how often the different platform types are created (0 = Reg, 1 = Spring, 2 = Move L, 3 = Move R, , 4 =HotOne, 6 = Broken, 7 = Moster L, 8 = Monster R, 9 = Rocket, 10 = Shield)
+    distribution: .word 7, 7, 7, 8, 8, 8, 4, 4, 4, 4, 4, 4, 4, 6, 6, 6, 6, 6, 6, 6, 10, 10, 10, 3, 3, 3, 3, 3, 3, 3, 2, 2, 2, 2, 2, 2, 9, 9, 9, 9, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
     
 	# Strings
 	newLine:      .asciiz "\n"
-	message1:     .asciiz "You are on a platform\n\n"
 	
 	# Variables
 	gameState:			  .word 0			# 0 Is the start menu, 1 is playing the game
 	gamesPlayed:           .word -1
 	score:                 .word 0
 	
-	
 	doodlerX:              .word 0
 	doodlerY:              .word 0
 	hDirection:            .word 0
 	timeLeftInAir:         .word 6
 	rowsSinceRandPlatform: .word 0
+	shield:				  .word -1
+	rocket:				  .word -1
 	
 
 	# Every value > 1 is the x coord -1 if the platform, 0 means there is no platform
@@ -179,14 +239,13 @@
 	platformPositions:		 .space 256
 	
 	# Data for the background music
-	# The notes to be played
 	notesR: .word   65, 69, 71, 0, 65, 69, 71, 0, 65, 69, 71, 76, 74, 71, 72, 71, 67, 64, 0, 0, 0, 62, 64, 67, 64, 0, 0, 0, 65, 69, 71, 0, 65, 69, 71, 0, 65, 69, 71, 76, 74, 71, 72, 76, 71, 67, 0, 71, 67, 62, 64, 0, 0, 0, 62, 64, 65, 0, 67, 69, 71, 0, 72, 71, 64, 0, 0, 65, 67, 69, 0, 71, 69, 71, 0, 72, 74, 76, 0, 0, 0, 0, 0, 0, 62, 64, 65, 0, 67, 69, 71, 72, 71, 64, 0, 0, 0, 0, 0, 0, 65, 64, 69, 67, 71, 0, 69, 69, 71, 74, 72, 72, 74, 74, 72, 76, 72, 74, 76, 0, 0, 0, 76,-1
 	notesL: .word   0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 62, 64, 65, 0, 67, 72, 74, 0, 76, 77, 79, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 62, 60, 65, 64, 67, 0, 65, 72, 67, 71, 69, 76, 71, 77, 76, 71, 77, 69, 71, 0, 0, 0, 83
 	.eqv noteLen    300  # The length of time a note is played
 	.eqv instrument 17   #Organ
 	currentNote: .word 0 # The note index in the arrays to be played
 	noteDelay:   .word 0 # The count of loop cycles between notes
-	
+	 
 .text
 	# Draw a label bitmap to the screen
 	.macro draw (%x_size, %y_size, %x_pos, %y_pos, %bitmap)
@@ -204,7 +263,7 @@
 	# Draw an bitmap stored starting at address to the screen
 	.macro drawR (%x_size, %y_size, %x_pos, %y_pos, %address)
 	    addi $sp, $sp, -4
-		addi $a0, $zero, %x_size
+		add $a0, $zero, %x_size
 		addi $a1, $zero, %y_size
 		add $a2, $zero, %x_pos
 		add $a3, $zero, %y_pos
@@ -280,19 +339,26 @@
 			sle $t2, $t1, $zero			# True if you are falling, false otherwise
 			and $t9, $t9, $t2 		 	# You are falling and you hit a platform
 			
+			# Handle platform colissions
+			
 			beqz $t9, else_on_platform	# You are either still jumping or you don't hit a platform, so don't just again
 			if_on_platform:
 				beq $t8, 1, else_springJump		# If you're on a spring platform do a special jump
 				beq $t8, 6, else_brokenJump		# If you're on a broken platform do fall and break the platform
 				beq $t8, 4, else_hotOneJump		# If you're on a hotOne platform prime the platform for next time
 				beq $t8, 5, else_hotTwoJump		# If you're on a hotTwo platform end the game since its 'hot'
+				beq $t8, 7, else_monsterJump		# If you're on a monster platform kill the monster and jump away
+				beq $t8, 8, else_monsterJump		# If you're on a monster platform kill the monster and jump awa
+				beq $t8, 9, else_rocket			# If you land on a rocket, activate the ability and remove the item
+				beq $t8, 10,else_shield			# If you land on a shield, activate the ability and remove the item
+				
 				
 				if_regJump:	# Jump 6 units high on a regular jump
 					addi $t1, $zero, 6
 					sw   $t1, timeLeftInAir
 					j fi_jumps
 				else_springJump:	# Jump 15 units high when on a spring
-					addi $t1, $zero, 15
+					addi $t1, $zero, 10
 					sw   $t1, timeLeftInAir
 					j fi_jumps
 				else_brokenJump:	# Keep falling if you land on a broken plaform and break the platform
@@ -321,6 +387,44 @@
 					j fi_jumps
 				else_hotTwoJump: # Kill the player when it lands on the platform
 					jal setGameStateToZero 	# Go to the menu
+					j fi_jumps
+				else_monsterJump: # Kill the monster and 'big jump' away
+					addi $t1, $zero, 10
+					sw   $t1, timeLeftInAir
+				
+					lw   $t2, doodlerY
+					addi $t2, $t2, 8					# The offet to the platform which the doodler is standing on
+					mul $t2, $t2, 4
+					la $t2, platformPositions($t2)	# The address spesifing the platform which the doodler is currently on
+					sw $zero, ($t2)					# Remove the platform
+					
+					j fi_jumps
+				 else_rocket:
+				 	addi $t1, $zero, 15		# Rocket Jump
+					sw   $t1, timeLeftInAir
+				
+					sw $zero, rocket				  # Activate the rocket drawing
+				
+					lw   $t2, doodlerY
+					addi $t2, $t2, 8					# The offet to the platform which the doodler is standing on
+					mul $t2, $t2, 4
+					la $t2, platformPositions($t2)	# The address spesifing the platform which the doodler is currently on
+					addi $t9, $zero, 5
+					sb $zero, 1($t2)					# make the platform a regular
+					
+					j fi_jumps
+				else_shield:	# Remove the item and get the ability
+					addi $t1, $zero, 6		# Jump normally
+					sw   $t1, timeLeftInAir
+				
+					sw $zero, shield			        # Activate the shield drawing
+				
+					lw   $t2, doodlerY
+					addi $t2, $t2, 8					# The offet to the platform which the doodler is standing on
+					mul $t2, $t2, 4
+					la $t2, platformPositions($t2)	# The address spesifing the platform which the doodler is currently on
+					addi $t9, $zero, 5
+					sb $zero, 1($t2)					# make the platform a regular
 				fi_jumps:
 # FIXME: SCORE AND SOUND				
 				# Increment the score by 1
@@ -341,8 +445,20 @@
 				# decrement your time left in the air by 1
 				addi $t1, $t1, -1
 				sw $t1, timeLeftInAir
+				
+				# Remove rocket pack since the doodelr is now falling
+				bnez $t1, fi_on_platform
+				if_upwards_velocity_is_zero:
+					addi $t1, $zero, -1
+					sw $t1, rocket
+				fi_upwards_velocity_is_zero:
 				j fi_on_platform
 			fi_on_platform:
+			
+			# Updates the doodler if he hit a monster from the bottom i.e gets knocked down
+			jal doodlerHitMonsterFromBelow
+			
+			
 			
 			# Checks if the doodler has fit the bottom row and the game is over
 			jal isGameOver
@@ -358,7 +474,7 @@
 			if_jumping: # Currently moving up
 				addi $t2, $t2, -1
 				j fi_jumping
-			else_jumping: # Curretnly alling
+			else_jumping: # Curretnly falling
 				addi $t2, $t2, 1
 			fi_jumping:	
 			sw $t2, doodlerY
@@ -367,6 +483,7 @@
 		# Update location of platforms and other objects
 		jal shiftPlatformsDownIfNeeded
 		
+		# Update the horizontal location of the platforms and monster
 		jal movePlatformsHorizontally
 		
 		# Redraw the screen
@@ -412,6 +529,50 @@
 			if_hDirectionIsLeft:
 				draw(8,8,$t1, $t2, doodlerArrayL)
 			fi_hDirectionIsLeft:
+			
+			# Draw the shield if its active
+			lw $t8, shield			# 0 or 4 mean the sheild is up, -1 means it is not
+			bltz $t8, fi_shield
+			if_shield:
+				# Load in the X, Y and move up and left by 1 since the shield is just above the doodler
+				lw $t1, doodlerY
+				lw $t2, doodlerX
+				addi $t1, $t1, -1
+				addi $t2, $t2, -1
+			
+				# Load in either 0 or 1 
+				lw $t9, shieldArrays+0($t8) 
+				drawR(9,10,$t1, $t2, $t9)
+			
+				bnez $t8, else_shield_zero
+				if_shield_zero:
+					addi $t8, $zero, 4
+					sw $t8, shield
+					j fi_shield_zero
+				else_shield_zero:
+					addi $t8, $zero, 0
+					sw $t8, shield
+					j fi_shield_zero
+				fi_shield_zero:
+			fi_shield:
+			
+			
+			# Draw the rocket pack, if it is active
+			lw $t8, rocket			# 0 or 4 mean the sheild is up, -1 means it is not
+			bltz $t8, fi_rocket
+			if_rocket:
+				lw $t1, doodlerY			# Loads in the doodlers current position
+				lw $t2, doodlerX
+			
+				lw $t3, hDirection		# Loads in the correct rocketpack into $t9 depending on the doodler's direction	
+				mul $t3, $t3, 4
+				lw $t9, rocketArrays($t3)
+			
+				addi $t1, $t1, -1		# The offset needs relative the the doodlers position
+				addi $t2, $t2, -2
+			
+				drawR(6,12,$t1, $t2,$t9) # Draw the rocket pack
+			fi_rocket:
 			
 			# Draw the bitmap display from the buffer
 			jal copyFromDisplayBuffer
@@ -502,6 +663,11 @@ setGameStateToZero:
 	addi $t0, $zero, 50
 	sw $t0, doodlerY 			# doodlerX = 11
 	
+	# Clear any active effects
+	addi $t0, $zero, -1
+	sw $t0, shield 			# shield = -1 (disabled)
+	sw $t0, rocket 			# rocket = -1 (disabled)
+	
 	# Copy the start Menu platform positions to the platformPositions array
 	la $t0, platformPositions
 	la $t1, startMenuPlatformPosition
@@ -543,6 +709,10 @@ setGameStateToOne:
 	
 	addi $t0, $zero, 50
 	sw $t0, doodlerY 			# doodlerY = 50
+	
+	addi $t0, $zero, -1
+	sw $t0, shield 			# shield = -1 (disabled)
+	sw $t0, rocket 			# rocket = -1 (disabled)
 	
 	# Copy the initial platfrom positions to the platformPositions array
 	la $t0, platformPositions
@@ -622,6 +792,45 @@ drawScore:
 isGameOver:
 	lw $t0, doodlerY
 	sgt $v0, $t0, 55
+	jr $ra
+#######################################################
+doodlerHitMonsterFromBelow:	
+	lw $t0, doodlerX
+	lw $t1, doodlerY
+	la $t2, platformPositions
+	
+	mul $t3, $t1, 4									# Multiply by 4 (bytes) to get the correct mem address
+	add $t3, $t3, $t2
+	lb  $t9, 1($t3)									# Stores the platform type stored in array[i] 	
+	lb  $t3, 0($t3)									# Store the value of platform array[i] byte 0 (The first byte is the platform position) in t3
+
+	beq $t9, 7, if_possibleMonsterCollison
+	bne $t9, 8, fi_possibleMonsterCollison									
+	if_possibleMonsterCollison:
+		addi $t3, $t3, -1 							# The x-value is off by 1 and so must be decremented to the correct value
+		
+		# IF X >= t3-8 AND X <+ t3 +(12-1) ==> COLLISON
+		addi $t4, $t3, -7				#t4 = t3-8
+		addi $t5, $t3, 11				#t5 = t3+11	
+		sle $t4, $t4, $t0				# t4 = t3-8 <= X
+		sle $t5, $t0, $t5				# t5 = X >= t3+12
+		and $t3, $t4, $t5
+		beqz $t3 fi_possibleMonsterCollison
+		if_monsterDetected:
+			lw $t9, shield				
+			bltz $t9, fi_has_shield
+			if_has_shield:
+				addi $t9, $zero, -1
+				sw $t9, shield					# Remove the shield
+				j fi_possiblePlatformCollison		# Do not get knocked down
+			fi_has_shield:
+		
+			addi $t0, $zero, -1							# If a monster is detected begin falling
+			sw $t0, timeLeftInAir
+			j fi_possiblePlatformCollison
+	fi_possibleMonsterCollison:
+	
+
 	jr $ra
 #######################################################
 shiftPlatformsDownIfNeeded:
@@ -708,7 +917,8 @@ movePlatformsHorizontally:
 		lb $t2, platformPositions+0($t1)		# Load the position of the platfrom (if there exits one)
 		lb $t3, platformPositions+1($t1)		# Loads the platform type
 		
-		bne, $t3, 2, else_moving_platform_R
+		beq, $t3, 7, if_moving_platform_L		# Left moving mosnter
+		bne, $t3, 2, else_moving_platform_R   # Not a left moving paltform
 		if_moving_platform_L:
 			# Move platfrom left by one, and if we hit the boundary switch its direction to right (6)
 			addi $t2, $t2, -1
@@ -716,18 +926,20 @@ movePlatformsHorizontally:
 			bne $t2, 0, fi_left_side_reached
 			if_left_side_reached:
 				addi $t2, $zero, 1
-				addi $t3, $zero, 3
+				addi $t3, $t3, 1		# Switch to right moving
 			fi_left_side_reached:
 			j fi_moving_platform
 		else_moving_platform_R:
+		beq, $t3, 8, right_moving_monster
 		bne, $t3, 3, fi_moving_platform
+			right_moving_monster:
 			# Move platfrom right by one, and if we hit the boundary switch its direction to right (6)
 			addi $t2, $t2, 1
 
 			bne $t2, 20, fi_right_side_reached
 			if_right_side_reached:
 				addi $t2, $zero, 21
-				addi $t3, $zero, 2
+				addi $t3, $t3, -1 		# Switch to left moving
 			fi_right_side_reached:
 		fi_moving_platform:
 		# Store the updated values
@@ -890,7 +1102,9 @@ drawPlatforms:
 		mul $t2, $t0, 4					# 4i 
 		add $t2, $t2, $t1
 		lb  $t3, 1($t2)					# The type of platform being used
+		add $s0, $t3, $zero				# A copy of the paltofrm type
 		lb  $t2, ($t2)					# $t2 is the value of platformPositions[i]
+		
 
 		
 		bnez  $t2, if_rowHasPlatform 				# If the value is non-zero then it is the x-coord for a platform in row i
@@ -910,8 +1124,35 @@ drawPlatforms:
 			lw $t4, ($t4)		# Loads the address into a register
 			la $t4, ($t4)		# Loads the conents of the address
 	
-			drawR(2, PLATFORM_WIDTH, $t0,$t2,$t4)
-
+			
+			# Draw the platform normally, unless its type > 8 --> It is a specials shape
+			bgt $s0, 8, else_not_special
+			if_not_special:
+				drawR(2, PLATFORM_WIDTH, $t0,$t2,$t4)
+				j fi_not_special
+			else_not_special:
+				addi $t9, $t0 -5						# Shift up to account for the special shape
+				
+				addi $t8, $zero, 7					# The height of the bitmap
+				
+				# Makes sure we don't draw over the top of the screen
+				bgez $t9, fi_drawing_over_top
+				if_drawing_over_top:
+					add $t8, $t8, $t9	# The updated height of the bitmap
+				
+					mul $t5, $t9, -1		# The number of rows not to draw
+					mul $t5, $t5, 48		# Each row is 48 bytes
+					add $t4, $t4, $t5	# Offset the bitmap
+				
+					add $t9, $zero, $zero	# Draws at the top of the screen
+					
+				
+				fi_drawing_over_top:
+				
+				drawR($t8, PLATFORM_WIDTH, $t9,$t2,$t4)
+				j fi_not_special
+			fi_not_special:	
+	
 			lw   $t0, ($sp) 
 			lw   $t1, 4($sp)						
 			addi $sp, $sp, 8							# Deallocated stack space after restoring values
